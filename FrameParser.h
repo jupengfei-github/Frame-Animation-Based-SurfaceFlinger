@@ -54,7 +54,7 @@ class FrameParser {
 		Resolution resolution;
 	};
 
-	void parse_desc_file(auto_ptr<FileMap>);
+	void parse_desc_file(FileMap*);
 	void parse_desc_item(string, string);
 
 	FrameResType frame_type (string);

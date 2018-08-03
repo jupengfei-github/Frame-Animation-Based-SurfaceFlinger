@@ -1,8 +1,10 @@
 #include <androidfw/ZipFileRO.h>
 #include <regex>
+#include <sstream>
 #include <exception>
 
 #include "FrameParser.h"
+#include "FrameStream.h"
 
 namespace frame_animation {
 
@@ -26,37 +28,40 @@ const string FrameParser::FRAME_MODE_REPEATE_STR = "repeate";
 const string FrameParser::FRAME_MODE_REVERSE_STR = "reverse";
 const string FrameParser::FRAME_MODE_NORMAL_STR  = "normal";
 
+template<typename T> T lexical_cast(string s) {
+	istringstream iss(s);
+	T rt;
+	iss>>rt;
+	return rt;
+}
+
 shared_ptr<FrameInfo> FrameParser::parse_frame (const string path) {
 	auto_ptr<ZipFileRO> zip_file(ZipFileRO::open(path.c_str()));
 	if (!zip_file.get()) {
-		fpstream.e<<"open "<<path<<" fail"<<endl;
-		throw excpetions();
+		FPLog.E()<<"open "<<path<<" fail"<<endl;
+		throw exception();
 	}
 
 	ZipEntryRO desc = zip_file->findEntryByName(ENTRY_DESC.c_str());
 	if (desc == nullptr) {
-		fpstream.e<<"find entry "<<ENTRY_DESC<<" fail"<<endl;
-		throw exceptions();
+		FPLog.E()<<"find entry "<<ENTRY_DESC<<" fail"<<endl;
+		throw exception();
 	}
 
-	try {
-		parse_desc_file(zip_file->createEntryFileMap(desc));
-	}
-	catch (bad_lexical_cast &e) {
-		zip_file->releaseEntry(desc);
-		fstream.e<<"parse desc file error"<<endl;
-	}
-	
+	FileMap *file_map = zip_file->createEntryFileMap(desc);
+	parse_desc_file(file_map);
+	delete file_map;
 	zip_file->releaseEntry(desc);
-	return shared_ptr<FrameParser>();
+
+	return shared_ptr<FrameInfo>();
 }
 
-void FrameParser::parse_desc_file (auto_ptr<FileMap> map) {
+void FrameParser::parse_desc_file (FileMap* map) {
 	regex item_pattern("(\\w+)\\s*:\\s*\\[(.+)\\]");
 	smatch item_match;
 
-	string desc_str(map->getDataPtr());
-	while (regex_search(desc_str, item_pattern, item_match)) {
+	string desc_str(static_cast<char*>(map->getDataPtr()));
+	while (regex_search(desc_str, item_match, item_pattern)) {
 		string key_item(item_match[1].first, item_match[1].second);
 		string value_item(item_match[2].first, item_match[2].second);
 		parse_desc_item(key_item, value_item);
@@ -74,7 +79,7 @@ void FrameParser::parse_desc_item (string key, string value) {
 			frame_desc.resolution.height = lexical_cast<int>(string(result[2].first, result[2].second));
 		}
 		else
-			fpstream.e<<"invalide resoution : "<<value<<endl;
+			FPLog.E()<<"invalide resoution : "<<value<<endl;
 	}
 	else if (key == DESC_KEY_RATE)
 		frame_desc.frame_rate = lexical_cast<int>(value);
@@ -92,10 +97,10 @@ void FrameParser::parse_desc_item (string key, string value) {
 	else if (key == DESC_KEY_MODE)
 		frame_desc.frame_mode = frame_mode(value);
 	else 
-		fpstream.e<<"illegal desc item "<<value<<endl;
+		FPLog.E()<<"illegal desc item "<<value<<endl;
 }
 
-FrameResType FrameParser::frame_type (string value) {
+FrameParser::FrameResType FrameParser::frame_type (string value) {
 	if (value == FRAME_TYPE_APK_STR)
 		return FRAME_RES_TYPE_APK;
 	else if (value == FRAME_TYPE_ZIP_STR)
@@ -106,7 +111,7 @@ FrameResType FrameParser::frame_type (string value) {
 		return FRAME_RES_TYPE_NONE;
 }
 
-FrameMode FrameParser::frame_mode (string value) {
+FrameParser::FrameMode FrameParser::frame_mode (string value) {
 	if (value == FRAME_MODE_NORMAL_STR)
 		return FRAME_MODE_NORMAL;
 	else if (value == FRAME_MODE_REPEATE_STR)

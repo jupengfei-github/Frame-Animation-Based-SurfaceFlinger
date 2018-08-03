@@ -16,6 +16,7 @@ int main(int argc, char *argv[]) {
 		exit(-1);
 	}
 
-	FrameParser::parse_frame(string(argv[1]));
+	FrameParser frame_parser;
+	frame_parser.parse_frame(string(argv[1]));
 	return 0;
 }
