@@ -14,6 +14,7 @@ namespace frame_animation {
 
 class FrameParser {
 	static const string ENTRY_DESC;
+	static const string APK_PACKAGE;
 
 	/* desc key/value */
 	static const string DESC_KEY_RESOLUTION;
@@ -34,16 +35,19 @@ class FrameParser {
 		FRAME_RES_TYPE_NONE,
 	};
 
-	void parse_desc_file(FileMap*);
-	void parse_desc_item(string, string);
-	shared_ptr<FrameInfo> createFrameInfo(shared_ptr<ZipFileRO> zip_file);
+	shared_ptr<FrameInfo> parse_zip_frame (const string&);
+	shared_ptr<FrameInfo> parse_apk_frame (const string&);
+	shared_ptr<FrameInfo> parse_dir_frame (const string&);
 
-	FrameResType frame_type (string);
-	FrameMode frame_mode (string);
+	void parse_desc_file(const string&);
+	void parse_desc_item(const string&, const string&);
+
+	FrameResType frame_type (const string&) const;
+	FrameMode frame_mode (const string&) const;
 
 public:
 	/* frame parse */
-	shared_ptr<FrameInfo> parse_frame (const string);
+	shared_ptr<FrameInfo> parse_frame (const string&);
 
 private:
 	string file_path;

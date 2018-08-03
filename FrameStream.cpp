@@ -79,7 +79,19 @@ fpstream& fpstream::log_priority (android_LogPriority pri) {
 }
 
 // --------------------------------------------------------
+ResStreamBuf::ResStreamBuf (shared_ptr<Asset> asset) {
+	this->asset = asset;
+	buf = static_cast<char*>(asset->getBuffer(true));
+	setg(buf, buf, buf + asset->getLength());
+}
 
+int ResStreamBuf::underflow () {
+	return EOF;
+}
+
+int ResStreamBuf::uflow () {
+	return EOF;
+}
 
 // --------------------------------------------------------
 ZipStreamBuf::ZipStreamBuf (shared_ptr<ZipFileRO> zip, string name) {

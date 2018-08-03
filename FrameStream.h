@@ -5,6 +5,7 @@
 #include <streambuf>
 #include <string>
 #include <androidfw/ZipFileRO.h>
+#include <androidfw/Asset.h>
 #include <android/log.h>
 
 using namespace std;
@@ -26,6 +27,13 @@ extern fpstream FPLog;
 
 // ------------------------------------------------------
 class ResStreamBuf : public streambuf {
+	shared_ptr<Asset> asset;
+	char *buf;
+public:
+	ResStreamBuf (shared_ptr<Asset> asset):asset(asset) {}
+
+	virtual int underflow();
+	virtual int uflow();
 };
 
 class ZipStreamBuf : public streambuf {
