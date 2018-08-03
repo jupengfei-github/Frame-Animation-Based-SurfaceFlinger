@@ -1,6 +1,7 @@
 #include <androidfw/ZipFileRO.h>
 #include <regex>
 #include <sstream>
+#include <iostream>
 #include <exception>
 
 #include "FrameParser.h"
@@ -36,7 +37,7 @@ template<typename T> T lexical_cast(string s) {
 }
 
 shared_ptr<FrameInfo> FrameParser::parse_frame (const string path) {
-	auto_ptr<ZipFileRO> zip_file(ZipFileRO::open(path.c_str()));
+	unique_ptr<ZipFileRO> zip_file(ZipFileRO::open(path.c_str()));
 	if (!zip_file.get()) {
 		FPLog.E()<<"open "<<path<<" fail"<<endl;
 		throw exception();
@@ -53,6 +54,12 @@ shared_ptr<FrameInfo> FrameParser::parse_frame (const string path) {
 	delete file_map;
 	zip_file->releaseEntry(desc);
 
+	FPLog.I()<<frame_desc.frame_path<<endl;
+	FPLog.I()<<frame_desc.frame_type<<endl;
+	FPLog.I()<<frame_desc.frame_mode<<endl;
+	FPLog.I()<<frame_desc.frame_rate<<endl;
+	FPLog.I()<<frame_desc.resolution.width<<" "<<frame_desc.resolution.height<<endl;
+
 	return shared_ptr<FrameInfo>();
 }
 
@@ -60,7 +67,7 @@ void FrameParser::parse_desc_file (FileMap* map) {
 	regex item_pattern("(\\w+)\\s*:\\s*\\[(.+)\\]");
 	smatch item_match;
 
-	string desc_str(static_cast<char*>(map->getDataPtr()));
+	string desc_str(static_cast<char*>(map->getDataPtr()), map->getDataLength());
 	while (regex_search(desc_str, item_match, item_pattern)) {
 		string key_item(item_match[1].first, item_match[1].second);
 		string value_item(item_match[2].first, item_match[2].second);
@@ -72,14 +79,15 @@ void FrameParser::parse_desc_file (FileMap* map) {
 
 void FrameParser::parse_desc_item (string key, string value) {
 	if (key == DESC_KEY_RESOLUTION) {
-		regex resolution_regex("\\d+x\\d+");
+		regex resolution_regex("(\\d+)x(\\d+)");
 		smatch result;
 		if (regex_search(value, result, resolution_regex)) {
 			frame_desc.resolution.width  = lexical_cast<int>(string(result[1].first, result[1].second));
 			frame_desc.resolution.height = lexical_cast<int>(string(result[2].first, result[2].second));
 		}
 		else
-			FPLog.E()<<"invalide resoution : "<<value<<endl;
+			;
+			//FPLog.E()<<"invalide resoution : "<<value<<endl;
 	}
 	else if (key == DESC_KEY_RATE)
 		frame_desc.frame_rate = lexical_cast<int>(value);
@@ -97,7 +105,7 @@ void FrameParser::parse_desc_item (string key, string value) {
 	else if (key == DESC_KEY_MODE)
 		frame_desc.frame_mode = frame_mode(value);
 	else 
-		FPLog.E()<<"illegal desc item "<<value<<endl;
+		;//FPLog.E()<<"illegal desc item "<<value<<endl;
 }
 
 FrameParser::FrameResType FrameParser::frame_type (string value) {

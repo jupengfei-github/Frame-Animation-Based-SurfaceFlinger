@@ -21,14 +21,15 @@ class fpsbuffer : public streambuf {
 	}
 
 	int flush_buffer () {
-		if (pptr() == nullptr && pptr() <= pbase())
+		int num = pptr() - pbase();
+		if (pptr() == nullptr || num <= 0)
 			return 0;
 
+		/* c style string */
 		*pptr() = '\0';
 		pbump(1);
 
-		int num = pptr() - pbase();
-		if (__android_log_print(priority, tag.c_str(), "%s", pbase()) != num) {
+		if (__android_log_print(priority, tag.c_str(), "%s", pbase()) < 0) {
 			cerr<<"flush_buffer @__android_log_print"<<endl;
 			pbump(-1);
 			return EOF;
