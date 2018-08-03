@@ -34,28 +34,9 @@ class FrameParser {
 		FRAME_RES_TYPE_NONE,
 	};
 
-	/* frame mode str */
-	static const string FRAME_MODE_REVERSE_STR;
-	static const string FRAME_MODE_REPEATE_STR;
-	static const string FRAME_MODE_NORMAL_STR;
-	enum FrameMode {
-		FRAME_MODE_REVERSE,
-		FRAME_MODE_REPEATE,
-		FRAME_MODE_NORMAL,
-	};
-
-	/* desc.txt */
-	struct DescriptionInfo {
-		vector<string> frames;
-		string frame_path;
-		FrameResType frame_type;
-		FrameMode frame_mode;
-	    int frame_rate;
-		Resolution resolution;
-	};
-
 	void parse_desc_file(FileMap*);
 	void parse_desc_item(string, string);
+	shared_ptr<FrameInfo> createFrameInfo(shared_ptr<ZipFileRO> zip_file);
 
 	FrameResType frame_type (string);
 	FrameMode frame_mode (string);
@@ -66,9 +47,8 @@ public:
 
 private:
 	string file_path;
-	int cur_frame;
-	int max_frame;
 	DescriptionInfo frame_desc;
+	FrameResType type;
 };
 	
 }; //namespace frame_animation

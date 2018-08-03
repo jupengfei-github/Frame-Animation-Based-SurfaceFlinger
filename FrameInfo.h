@@ -2,8 +2,10 @@
 #define _FRAME_INFO_H_
 
 #include <istream>
+#include <androidfw/ZipFileRO.h>
 
 using namespace std;
+using namespace android;
 
 namespace frame_animation {
 
@@ -12,10 +14,67 @@ struct Resolution {
 	int height;
 };
 
+/* frame mode str */
+const string FRAME_MODE_REVERSE_STR;
+const string FRAME_MODE_REPEATE_STR;
+const string FRAME_MODE_NORMAL_STR;
+enum FrameMode {
+	FRAME_MODE_REVERSE,
+	FRAME_MODE_REPEATE,
+	FRAME_MODE_NORMAL,
+};
+
+struct DescriptionInfo {
+	vector<string> frames;
+	string frame_path;
+	FrameMode frame_mode;
+	int frame_rate;
+	Resolution resolution;
+};
+
 class FrameInfo {
 	int idx;
-	Resolution resolution;
-	auto_ptr<istream> data;
+	DescriptionInfo info;
+
+public:
+	FrameInfo (DescriptionInfo ifo) {
+		info = ifo;
+		idx = 0;
+	}
+	virtual ~FrameInfo () {}
+
+	int cur_max_count();
+	int cur_idx();
+	FrameMode cur_mode();
+	int cur_rate();
+	void next_frame();
+	Resolution cur_resolution();
+
+	virtual shared_ptr<istream> cur_frame() = 0;
+};
+
+// --------------------------------------------------------
+class ZipFrameInfo : public FrameInfo {
+	shared_ptr<ZipFileRO> zip_file;
+public:
+	ZipFrameInfo (DescriptionInfo info, shared_ptr<ZipFileRO> zip):FrameInfo(info) {
+		zip_file = zip;
+	}
+	virtual ~ZipFrameInfo () {}
+	virtual shared_ptr<istream> cur_frame();
+};
+
+// --------------------------------------------------------
+struct ApkFrameInfo : public FrameInfo {
+	ApkFrameInfo (DescriptionInfo info):FrameInfo(info) {}
+	virtual shared_ptr<istream> cur_frame();
+	virtual ~ApkFrameInfo() {}
+};
+
+struct DIRFrameInfo : public FrameInfo {
+	DIRFrameInfo (DescriptionInfo info):FrameInfo(info) {}
+	virtual shared_ptr<istream> cur_frame();
+	virtual ~DIRFrameInfo() {}
 };
 
 }; //namespace frame_animation

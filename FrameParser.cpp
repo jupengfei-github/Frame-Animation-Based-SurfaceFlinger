@@ -24,11 +24,6 @@ const string FrameParser::FRAME_TYPE_ZIP_STR = "zip";
 const string FrameParser::FRAME_TYPE_APK_STR = "apk";
 const string FrameParser::FRAME_TYPE_DIR_STR = "dir";
 
-/* desc frame mode */
-const string FrameParser::FRAME_MODE_REPEATE_STR = "repeate";
-const string FrameParser::FRAME_MODE_REVERSE_STR = "reverse";
-const string FrameParser::FRAME_MODE_NORMAL_STR  = "normal";
-
 template<typename T> T lexical_cast(string s) {
 	istringstream iss(s);
 	T rt;
@@ -36,8 +31,21 @@ template<typename T> T lexical_cast(string s) {
 	return rt;
 }
 
+bool FrameParser::ends_with (string str, string suffix) {
+	return str.rfind(suffix) == (str.length() - suffix.length());
+}
+
 shared_ptr<FrameInfo> FrameParser::parse_frame (const string path) {
-	unique_ptr<ZipFileRO> zip_file(ZipFileRO::open(path.c_str()));
+	if (ends_with(path, ".zip"))
+		return parse_zip_frame(path);
+	else if (ends_with(path, ".apk"))
+		return parse_apk_frame(path);	
+	else
+		return parse_dir_frame(path);
+}
+
+shared_ptr<ZipFrameInfo> FrameParser::parse_zip_frame (const string path) {
+	shared_ptr<ZipFileRO> zip_file(ZipFileRO::open(path.c_str()));
 	if (!zip_file.get()) {
 		FPLog.E()<<"open "<<path<<" fail"<<endl;
 		throw exception();
@@ -50,24 +58,36 @@ shared_ptr<FrameInfo> FrameParser::parse_frame (const string path) {
 	}
 
 	FileMap *file_map = zip_file->createEntryFileMap(desc);
-	parse_desc_file(file_map);
+	string desc_str(static_cast<char*>(map->getDataPtr()), map->getDataLength());
+	parse_desc_file(desc_str);
 	delete file_map;
 	zip_file->releaseEntry(desc);
 
-	FPLog.I()<<frame_desc.frame_path<<endl;
-	FPLog.I()<<frame_desc.frame_type<<endl;
-	FPLog.I()<<frame_desc.frame_mode<<endl;
-	FPLog.I()<<frame_desc.frame_rate<<endl;
-	FPLog.I()<<frame_desc.resolution.width<<" "<<frame_desc.resolution.height<<endl;
-
-	return shared_ptr<FrameInfo>();
+	return shared_ptr<ZipFrameInfo>(new ZipFrameInfo(dsinf, zip_file));
 }
 
-void FrameParser::parse_desc_file (FileMap* map) {
+shared_ptr<ApkFrameInfo> FrameParser::parse_apk_frame (const string path) {
+	uint32_t cookie;
+	AssetManager assetManager;
+
+	assetManager.addAssetPath(String8(path), &cookie);
+	ResTable resTable = assetManager.getResources();
+
+	String16 name(path.c_str());
+	String16 type("raw");
+	String16 package("android");
+	uint32_t id = resTable.identifierForName(name, name.size(),
+		type, type.size(), package, package.size());
+}
+
+shared_ptr<DIRFrameInfo> FrameParser::parse_dir_frame (const string path) {
+
+}
+
+void FrameParser::parse_desc_file (const string &desc_str) {
 	regex item_pattern("(\\w+)\\s*:\\s*\\[(.+)\\]");
 	smatch item_match;
 
-	string desc_str(static_cast<char*>(map->getDataPtr()), map->getDataLength());
 	while (regex_search(desc_str, item_match, item_pattern)) {
 		string key_item(item_match[1].first, item_match[1].second);
 		string value_item(item_match[2].first, item_match[2].second);
@@ -101,7 +121,7 @@ void FrameParser::parse_desc_item (string key, string value) {
 	else if (key == DESC_KEY_FRAME_PATH)
 		frame_desc.frame_path = value;
 	else if (key == DESC_KEY_FRAME_TYPE)
-		frame_desc.frame_type = frame_type(value);
+		type = frame_type(value);
 	else if (key == DESC_KEY_MODE)
 		frame_desc.frame_mode = frame_mode(value);
 	else 
@@ -119,7 +139,7 @@ FrameParser::FrameResType FrameParser::frame_type (string value) {
 		return FRAME_RES_TYPE_NONE;
 }
 
-FrameParser::FrameMode FrameParser::frame_mode (string value) {
+FrameMode FrameParser::frame_mode (string value) {
 	if (value == FRAME_MODE_NORMAL_STR)
 		return FRAME_MODE_NORMAL;
 	else if (value == FRAME_MODE_REPEATE_STR)
