@@ -1,7 +1,7 @@
 #include <regex>
 #include <sstream>
 #include <iostream>
-#include <exception>
+#include <fstream>
 #include <androidfw/ZipFileRO.h>
 #include <androidfw/Asset.h>
 #include <androidfw/AssetManager.h>
@@ -9,11 +9,9 @@
 
 #include "FrameParser.h"
 #include "FrameStream.h"
+#include "FrameError.h"
 
 namespace frame_animation {
-
-const string FrameParser::ENTRY_DESC  = "desc.txt";
-const string FrameParser::APK_PACKAGE = "animation";
 
 /* desc file key/value */
 const string FrameParser::DESC_KEY_MODE       = "mode";
@@ -29,8 +27,8 @@ const string FrameParser::FRAME_TYPE_APK_STR = "apk";
 const string FrameParser::FRAME_TYPE_DIR_STR = "dir";
 
 template<typename T> T lexical_cast(const string& s) {
-	istringstream iss(s);
 	T rt;
+	istringstream iss(s);
 	iss>>rt;
 	return rt;
 }
@@ -40,92 +38,26 @@ bool ends_with (const string& str, const string& suffix) {
 }
 
 shared_ptr<FrameInfo> FrameParser::parse_frame (const string& path) {
+	FPLog.I()<<"parse_frame : "<<path<<endl;
+
+	shared_ptr<FrameInfo> result;
 	if (ends_with(path, ".zip"))
-		return parse_zip_frame(path);
+		result = parse_zip_frame(path);
 	else if (ends_with(path, ".apk"))
-		return parse_apk_frame(path);	
+		result = parse_apk_frame(path);	
 	else
-		return parse_dir_frame(path);
-}
+		result = parse_dir_frame(path);
 
-shared_ptr<FrameInfo> FrameParser::parse_zip_frame (const string& path) {
-	shared_ptr<ZipFileRO> zip_file(ZipFileRO::open(path.c_str()));
-	if (!zip_file.get()) {
-		FPLog.E()<<"open "<<path<<" fail"<<endl;
-		throw exception();
-	}
-
-	ZipEntryRO desc = zip_file->findEntryByName(ENTRY_DESC.c_str());
-	if (desc == nullptr) {
-		FPLog.E()<<"find entry "<<ENTRY_DESC<<" fail"<<endl;
-		throw exception();
-	}
-
-	FileMap *file_map = zip_file->createEntryFileMap(desc);
-	string desc_str(static_cast<char*>(file_map->getDataPtr()), file_map->getDataLength());
-	parse_desc_file(desc_str);
-	delete file_map;
-	zip_file->releaseEntry(desc);
-
-	return shared_ptr<ZipFrameInfo>(new ZipFrameInfo(frame_desc, zip_file));
-}
-
-shared_ptr<FrameInfo> FrameParser::parse_apk_frame (const string& path) {
-	AssetManager assetManager;
-
-	String8 s8_path(path.c_str(), path.length());
-	assetManager.addAssetPath(s8_path, nullptr);
-	const ResTable& resTable = assetManager.getResources();
-
-	String16 s16_name(path.c_str(), path.length());
-	String16 s16_type("raw");
-	String16 s16_pkg(APK_PACKAGE.c_str());
-	uint32_t id = resTable.identifierForName(s16_name, s16_name.size(),
-		s16_type, s16_type.size(), s16_pkg, s16_pkg.size());
-	if (id == 0) {
-		FPLog.E()<<"obtain identifier "<<path<<" fail";
-		return shared_ptr<FrameInfo>(nullptr);
-	}
-
-	Res_value value;
-	resTable.getResource(id, &value);
-	auto_ptr<const ResStringPool> stringPool(resTable.getTableStringBlock(0));
-
-	size_t len;
-	const char *str = stringPool->string8At(value.data, &len);
-	string real_path(str, len);
-
-	auto_ptr<Asset> asset(assetManager.open(real_path.c_str(), Asset::ACCESS_STREAMING));
-	string desc_str(static_cast<const char*>(asset->getBuffer(true)), asset->getLength());
-	parse_desc_file(desc_str);
-
-	return shared_ptr<ApkFrameInfo>(new ApkFrameInfo(frame_desc));
-}
-
-shared_ptr<FrameInfo> FrameParser::parse_dir_frame (const string& path) {
-	ifstream ifm(path + "/" + ENTRY_DESC);
-	if (!ifm.good()) {
-		FPLog.E()<<"open "<<path<<" fail";
-		return shared_ptr<FrameInfo>(nullptr);
-	}
-
-	string desc_str;
-	desc_str.reserve(1024);
-
-	char buf[250];
-	int len;
-	while (!ifm.eof()) {
-		len = ifm.read(buf, 250);	
-		desc_str += string(buf, len);
-	}
-
-	parse_desc_file(desc_str);
-
-	return shared_ptr<DIRFrameInfo>(new DIRFrameInfo(frame_desc));
+	FPLog.I()<<frame_desc.frame_path<<endl;
+	FPLog.I()<<type<<endl;
+	FPLog.I()<<frame_desc.frame_mode<<endl;
+	FPLog.I()<<frame_desc.frame_rate<<endl;
+	FPLog.I()<<frame_desc.resolution.width<<" "<<frame_desc.resolution.height<<endl;
+	return result;
 }
 
 void FrameParser::parse_desc_file (const string &desc_str) {
-	regex item_pattern("(\\w+)\\s*:\\s*\\[(.+)\\]");
+	regex item_pattern("\\s*(\\w+)\\s*:\\s*\\[([^\\[\\]]+)\\]");
 	smatch item_match;
 
 	string ite_str = desc_str;
@@ -152,10 +84,12 @@ void FrameParser::parse_desc_item (const string& key, const string& value) {
 	else if (key == DESC_KEY_RATE)
 		frame_desc.frame_rate = lexical_cast<int>(value);
 	else if (key == DESC_KEY_FRAMES) {
-		regex frame_regex("\\w+");
+		regex frame_regex("[^,]+");
 		smatch frame_match;
-		while (regex_search(value, frame_match, frame_regex)) {
+		string ite_value = value;
+		while (regex_search(ite_value, frame_match, frame_regex)) {
 			frame_desc.frames.push_back(string(frame_match[0].first, frame_match[0].second));
+			ite_value = frame_match.suffix().str();
 		}
 	}
 	else if (key == DESC_KEY_FRAME_PATH)
@@ -188,6 +122,82 @@ FrameMode FrameParser::frame_mode (const string& value) const {
 		return FRAME_MODE_REVERSE;
 	else
 		return FRAME_MODE_NORMAL;
+}
+
+shared_ptr<FrameInfo> FrameParser::parse_zip_frame (const string& path) {
+	shared_ptr<ZipFileRO> zip_file(ZipFileRO::open(path.c_str()));
+	if (!zip_file.get())
+		throw parse_exception("open " + path + " fail");
+
+	ZipEntryRO desc = zip_file->findEntryByName(ENTRY_DESC.c_str());
+	if (desc == nullptr)
+		throw parse_exception("find entry " + ENTRY_DESC + " fail");
+
+	auto_ptr<FileMap> file_map(zip_file->createEntryFileMap(desc));
+	string desc_str(static_cast<char*>(file_map->getDataPtr()), file_map->getDataLength());
+	delete file_map.release();
+	zip_file->releaseEntry(desc);
+
+	parse_desc_file(desc_str);
+	return shared_ptr<ZipFrameInfo>(new ZipFrameInfo(frame_desc, zip_file));
+}
+
+shared_ptr<FrameInfo> FrameParser::parse_apk_frame (const string& path) {
+	shared_ptr<AssetManager> assetManager(new AssetManager());
+	shared_ptr<FrameInfo> null_rlt(nullptr);
+
+	String8 s8_path(path.c_str(), path.length());
+	if (!assetManager->addAssetPath(s8_path, nullptr)) {
+		FPLog.E()<<"parse_apk_frame addAssetPath fail"<<endl;
+		return null_rlt;
+	}
+
+	const ResTable& resTable = assetManager->getResources();
+	String16 s16_name(APK_NAME.c_str());
+	String16 s16_type(APK_DESC_TYPE.c_str());
+	String16 s16_pkg(APK_PACKAGE.c_str());
+
+	uint32_t id = resTable.identifierForName(s16_name, s16_name.size(),
+		s16_type, s16_type.size(), s16_pkg, s16_pkg.size());
+	if (id == 0) {
+		FPLog.E()<<"obtain identifier "<<path<<" fail";
+		return null_rlt;
+	}
+
+	Res_value value;
+	ssize_t index = resTable.getResource(id, &value);
+	const ResStringPool *stringPool = resTable.getTableStringBlock(index);
+
+	size_t len;
+	const char *str = stringPool->string8At(value.data, &len);
+	string real_path(str, len);
+
+	auto_ptr<Asset> asset(assetManager->openNonAsset(real_path.c_str(), Asset::ACCESS_STREAMING));
+	string desc_str(static_cast<const char*>(asset->getBuffer(true)), asset->getLength());
+	asset->close();
+
+	parse_desc_file(desc_str);
+	return shared_ptr<ApkFrameInfo>(new ApkFrameInfo(frame_desc, assetManager));
+}
+
+shared_ptr<FrameInfo> FrameParser::parse_dir_frame (const string& path) {
+	ifstream ifm(path + "/" + ENTRY_DESC);
+	if (!ifm.good()) {
+		FPLog.E()<<"open "<<path<<" fail"<<endl;
+		ifm.close();
+		return shared_ptr<FrameInfo>(nullptr);
+	}
+
+	string desc_str;
+	string tmp;
+	while (ifm>>tmp) {
+		desc_str += tmp;
+	}
+	ifm.close();
+	cout<<desc_str<<endl;
+
+	parse_desc_file(desc_str);
+	return shared_ptr<DIRFrameInfo>(new DIRFrameInfo(frame_desc));
 }
 
 }; //namespace frame_animation

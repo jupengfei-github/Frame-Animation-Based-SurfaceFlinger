@@ -13,9 +13,6 @@ using namespace android;
 namespace frame_animation {
 
 class FrameParser {
-	static const string ENTRY_DESC;
-	static const string APK_PACKAGE;
-
 	/* desc key/value */
 	static const string DESC_KEY_RESOLUTION;
 	static const string DESC_KEY_MODE;

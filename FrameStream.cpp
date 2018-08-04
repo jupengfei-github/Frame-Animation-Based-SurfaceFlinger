@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iostream>
 #include "FrameStream.h"
 
 #define FPS_BUFFER_NUM 1024
@@ -81,7 +82,7 @@ fpstream& fpstream::log_priority (android_LogPriority pri) {
 // --------------------------------------------------------
 ResStreamBuf::ResStreamBuf (shared_ptr<Asset> asset) {
 	this->asset = asset;
-	buf = static_cast<char*>(asset->getBuffer(true));
+	buf = const_cast<char*>(static_cast<const char*>(asset->getBuffer(true)));
 	setg(buf, buf, buf + asset->getLength());
 }
 

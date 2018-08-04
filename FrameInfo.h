@@ -2,7 +2,10 @@
 #define _FRAME_INFO_H_
 
 #include <istream>
+#include <vector>
 #include <androidfw/ZipFileRO.h>
+#include <androidfw/AssetManager.h>
+#include "FrameStream.h"
 
 using namespace std;
 using namespace android;
@@ -14,10 +17,16 @@ struct Resolution {
 	int height;
 };
 
+const string ENTRY_DESC  = "desc.txt";
+const string APK_PACKAGE = "animation";
+const string APK_NAME    = "desc";
+const string APK_DESC_TYPE = "raw";
+const string APK_ANIM_TYPE = "drawable";
+
 /* frame mode str */
-const string FRAME_MODE_REVERSE_STR;
-const string FRAME_MODE_REPEATE_STR;
-const string FRAME_MODE_NORMAL_STR;
+const string FRAME_MODE_REVERSE_STR = "reverse";
+const string FRAME_MODE_REPEATE_STR = "repeate";
+const string FRAME_MODE_NORMAL_STR  = "normal";
 enum FrameMode {
 	FRAME_MODE_REVERSE,
 	FRAME_MODE_REPEATE,
@@ -33,9 +42,9 @@ struct DescriptionInfo {
 };
 
 class FrameInfo {
+protected:
 	int idx;
 	DescriptionInfo info;
-
 public:
 	FrameInfo (DescriptionInfo ifo) {
 		info = ifo;
@@ -66,9 +75,11 @@ public:
 
 // --------------------------------------------------------
 struct ApkFrameInfo : public FrameInfo {
-	ApkFrameInfo (DescriptionInfo info):FrameInfo(info) {}
+	ApkFrameInfo (DescriptionInfo info, shared_ptr<AssetManager> assetManager):FrameInfo(info),assetManager(assetManager) {}
 	virtual shared_ptr<istream> cur_frame();
 	virtual ~ApkFrameInfo() {}
+private:
+	shared_ptr<AssetManager> assetManager;
 };
 
 struct DIRFrameInfo : public FrameInfo {

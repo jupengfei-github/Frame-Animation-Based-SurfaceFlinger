@@ -8,6 +8,6 @@ using namespace frame_animation;
 
 int main(void) {
 	FrameParser frame_parser;
-	frame_parser.parse_frame(string("/sdcard/animation.zip"));
+	frame_parser.parse_frame(string("/sdcard/animation"));
 	return 0;
 }
