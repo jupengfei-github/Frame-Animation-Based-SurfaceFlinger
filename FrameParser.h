@@ -3,7 +3,11 @@
 
 #include <string>
 #include <vector>
+#include <list>
 #include <utils/FileMap.h>
+
+#include <GLES/gl.h>
+#include <EGL/egl.h>
 
 #include "FrameInfo.h"
 
