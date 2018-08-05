@@ -24,22 +24,18 @@ int FrameInfo::cur_rate() {
 	return info.frame_rate;
 }
 
-void FrameInfo::next_frame() {
-	idx++;
-}
-
 Resolution FrameInfo::cur_resolution() {
 	return info.resolution;
 }
 
 // ------------------------------------------------
-shared_ptr<istream> ZipFrameInfo::cur_frame () {
-	string path = info.frame_path + "/" + info.frames[idx];
+shared_ptr<istream> ZipFrameInfo::next_frame () {
+	string path = info.frame_path + "/" + info.frames[idx++];
 	return shared_ptr<istream>(new istream(new ZipStreamBuf(zip_file, path)));
 }
 
 // -----------------------------------------------
-shared_ptr<istream> ApkFrameInfo::cur_frame () {
+shared_ptr<istream> ApkFrameInfo::next_frame () {
 	const ResTable& resTable = assetManager->getResources();
 	string name = info.frames[idx];
 
@@ -67,11 +63,11 @@ shared_ptr<istream> ApkFrameInfo::cur_frame () {
 }
 
 // ----------------------------------------------
-shared_ptr<istream> DIRFrameInfo::cur_frame () {
+shared_ptr<istream> DIRFrameInfo::next_frame () {
 	string path = info.frame_path + "/" + info.frames[idx];
 	shared_ptr<istream> ifm(new ifstream(path));
 	if (!ifm->good()) {
-		FPLog.E()<<"cur_frame : "<<path<<" failed";
+		FPLog.E()<<"next_frame : "<<path<<" failed";
 		return shared_ptr<istream>(nullptr);
 	}
 

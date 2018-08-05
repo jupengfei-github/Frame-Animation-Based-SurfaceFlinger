@@ -56,10 +56,10 @@ public:
 	int cur_idx();
 	FrameMode cur_mode();
 	int cur_rate();
-	void next_frame();
+	void reset_frame();
 	Resolution cur_resolution();
 
-	virtual shared_ptr<istream> cur_frame() = 0;
+	virtual shared_ptr<istream> next_frame() = 0;
 };
 
 // --------------------------------------------------------
@@ -70,13 +70,13 @@ public:
 		zip_file = zip;
 	}
 	virtual ~ZipFrameInfo () {}
-	virtual shared_ptr<istream> cur_frame();
+	virtual shared_ptr<istream> next_frame();
 };
 
 // --------------------------------------------------------
 struct ApkFrameInfo : public FrameInfo {
 	ApkFrameInfo (DescriptionInfo info, shared_ptr<AssetManager> assetManager):FrameInfo(info),assetManager(assetManager) {}
-	virtual shared_ptr<istream> cur_frame();
+	virtual shared_ptr<istream> next_frame();
 	virtual ~ApkFrameInfo() {}
 private:
 	shared_ptr<AssetManager> assetManager;
@@ -84,7 +84,7 @@ private:
 
 struct DIRFrameInfo : public FrameInfo {
 	DIRFrameInfo (DescriptionInfo info):FrameInfo(info) {}
-	virtual shared_ptr<istream> cur_frame();
+	virtual shared_ptr<istream> next_frame();
 	virtual ~DIRFrameInfo() {}
 };
 
