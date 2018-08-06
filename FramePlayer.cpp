@@ -22,7 +22,7 @@ void FramePlayer::stop () {
 	request_exit = true;
 }
 
-void FramePlayer::animation_thread (FramePlayer *player) {
+void FramePlayer::animation_thread (FramePlayer* const player) {
 	shared_ptr<FrameInfo> info = player->frame_info;
 
 	int frame_rate = info->cur_rate();

@@ -39,6 +39,7 @@ class FrameParser {
 	shared_ptr<FrameInfo> parse_zip_frame (const string&);
 	shared_ptr<FrameInfo> parse_apk_frame (const string&);
 	shared_ptr<FrameInfo> parse_dir_frame (const string&);
+	void dump() const;
 
 	void parse_desc_file(const string&);
 	void parse_desc_item(const string&, const string&);

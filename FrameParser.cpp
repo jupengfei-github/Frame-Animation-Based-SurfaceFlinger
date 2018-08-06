@@ -48,12 +48,16 @@ shared_ptr<FrameInfo> FrameParser::parse_frame (const string& path) {
 	else
 		result = parse_dir_frame(path);
 
-	FPLog.I()<<frame_desc.frame_path<<endl;
-	FPLog.I()<<type<<endl;
-	FPLog.I()<<frame_desc.frame_mode<<endl;
-	FPLog.I()<<frame_desc.frame_rate<<endl;
-	FPLog.I()<<frame_desc.resolution.width<<" "<<frame_desc.resolution.height<<endl;
+	dump();
 	return result;
+}
+
+void FrameParser::dump () const {
+	FPLog.I()<<"frame_path : "<<frame_desc.frame_path<<endl;
+	FPLog.I()<<"frame_type : "<<type<<endl;
+	FPLog.I()<<"frame_mode : "<<frame_desc.frame_mode<<endl;
+	FPLog.I()<<"frame_rate : "<<frame_desc.frame_rate<<endl;
+	FPLog.I()<<"frame_resolution : ["<<frame_desc.resolution.width<<"x"<<frame_desc.resolution.height<<"]"<<endl;
 }
 
 void FrameParser::parse_desc_file (const string &desc_str) {

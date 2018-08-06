@@ -20,7 +20,7 @@ class FramePlayer : public thread {
 	bool request_exit;
 	bool request_stop;
 
-	static void animation_thread (FramePlayer *player);
+	static void animation_thread (FramePlayer* const player);
 public:
 	FramePlayer (shared_ptr<FrameInfo> info) {
 		request_stop = true;
