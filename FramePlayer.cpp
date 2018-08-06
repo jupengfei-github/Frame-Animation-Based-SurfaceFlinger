@@ -1,12 +1,17 @@
-#include "FramePlayer.h"
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#include <SkBitmap.h>
 #include <SkImage.h>
 #include <SkStream.h>
 #include <SkData.h>
-#pragma GCC diagnostic pop
+#include <SkPaint.h>
+#include <SkImageInfo.h>
+
+#include <ui/PixelFormat.h>
+#include <ui/DisplayInfo.h>
+#include <gui/ISurfaceComposer.h>
+#include <gui/SurfaceComposerClient.h>
+
+#include <android/graphics/GraphicsJNI.h>
+
+#include "FramePlayer.h"
 
 namespace frame_animation {
 
@@ -22,19 +27,62 @@ void FramePlayer::stop () {
 	request_exit = true;
 }
 
+bool FramePlayer::init_display_surface () {
+	DisplayInfo dinfo;
+
+	FPLog.I()<<"init_display_surface 1"<<endl;
+	sp<IBinder> dtoken(SurfaceComposerClient::getBuiltInDisplay(ISurfaceComposer::eDisplayIdMain));
+
+	FPLog.I()<<"init_display_surface 2"<<endl;
+	status_t status = SurfaceComposerClient::getDisplayInfo(dtoken, &dinfo);
+	if (status) {
+		FPLog.E()<<"animation_thread getDisplayInfo fail"<<endl;
+		return false;
+	}
+
+	FPLog.I()<<"init_display_surface 3"<<endl;
+	unique_ptr<SurfaceComposerClient> session(new SurfaceComposerClient());
+	if (!session.get()) {
+		FPLog.E()<<"create SurfaceComposerClient fail"<<endl;
+		return false;
+	}
+
+	FPLog.I()<<"init_display_surface 4"<<endl;
+	control = session->createSurface(String8("frameAnimation"), dinfo.w, dinfo.h, PIXEL_FORMAT_RGBX_8888);
+
+	FPLog.I()<<"init_display_surface 5"<<endl;
+	surface = control->getSurface();
+	FPLog.E()<<"create Surface width : "<<dinfo.w<<" height : "<<dinfo.h<<endl;
+
+	return true;
+}
+
+void FramePlayer::unint_display_surface () {
+	surface.clear();
+	control.clear();
+}
+
 void FramePlayer::animation_thread (FramePlayer* const player) {
 	shared_ptr<FrameInfo> info = player->frame_info;
-
-	int frame_rate = info->cur_rate();
-	int frame_time = 1000 / frame_rate;
-
+	int frame_time = 1000 / info->cur_rate();
 	FrameMode mode = info->cur_mode();
 	int frame_cnt  = info->cur_max_count();
 
-	player->init_frame(info);
+	FPLog.I()<<"animation_thread started"<<endl;
+	if (!player->init_display_surface()) {
+		FPLog.E()<<"init_display_surface fail"<<endl;
+		return;
+	}
+
+	if (!player->init_frame(info)) {
+		player->unint_display_surface();
+		FPLog.E()<<"init_frame fail"<<endl;
+		return;
+	}
 
 	int idx = 0;
-	do {
+	bool exit;
+	while (!player->request_exit) {
 		const long now = ns2ms(systemTime());
 		if (info->cur_idx() >= frame_cnt) {
 			if (mode == FRAME_MODE_REPEATE) {
@@ -46,23 +94,48 @@ void FramePlayer::animation_thread (FramePlayer* const player) {
 		}
 
 		if (!player->request_stop)
-			player->flush_frame(info->next_frame(), idx++);
+			exit = player->flush_frame(info->next_frame(), idx++);
+
+		if (exit)
+			break;
 
 		const long sleepTime = ns2ms(systemTime()) - now;
 		if (sleepTime > 0)
 			sleep(sleepTime);
-	} while (!player->request_exit);
+	}
 
+	FPLog.I()<<"animation_thread stoped"<<endl;
 	player->unint_frame(info);
+	player->unint_display_surface();
 }
 
 // -----------------------------------------------------------------------
-void SkiaPlayer::init_frame (const shared_ptr<FrameInfo>& info) {
-	int frame_cnt = info->cur_max_count();
+bool SkiaPlayer::init_frame (const shared_ptr<FrameInfo>& frame_info) {
+	ANativeWindow_Buffer buffer;
+	status_t err = surface->lock(&buffer, nullptr);
+	if (err < 0) {
+		FPLog.E()<<"Surface lock buffer fail"<<endl;
+		return false;
+	}
+
+	SkImageInfo info = SkImageInfo::Make(buffer.width, buffer.height,
+		convertPixelFormat(buffer.format),
+		buffer.format == PIXEL_FORMAT_RGBX_8888? kOpaque_SkAlphaType : kPremul_SkAlphaType,
+		GraphicsJNI::defaultColorSpace());
+	SkBitmap bitmap;
+	ssize_t bpr = buffer.stride * bytesPerPixel(buffer.format);
+	bitmap.setInfo(info, bpr);
+	if (buffer.width > 0 && buffer.height > 0)
+		bitmap.setPixels(buffer.bits);
+	else
+		bitmap.setPixels(nullptr);
+	canvas = auto_ptr<SkCanvas>(new SkCanvas(bitmap));
+
+	int frame_cnt = frame_info->cur_max_count();
 	for (int i = 0; i < frame_cnt; i++) {
 		char *buf = nullptr;
 
-		shared_ptr<istream> is = info->next_frame();
+		shared_ptr<istream> is = frame_info->next_frame();
 		is->seekg(0, ios_base::end);
 		size_t len = is->tellg();
 		is->seekg(0, ios_base::beg);
@@ -87,15 +160,32 @@ void SkiaPlayer::init_frame (const shared_ptr<FrameInfo>& info) {
 
 		frames.push_back(bitmap);
 	}
+
+	return true;
 }
 
-void SkiaPlayer::flush_frame(shared_ptr<istream> in __unused, int idx __unused) const {
+bool SkiaPlayer::flush_frame(shared_ptr<istream> in __unused, int idx) const {
+	SkPaint paint;
+	const SkBitmap bitmap = frames[idx];
 
+	canvas->drawBitmap(bitmap, 0, 0, &paint);
+	surface->unlockAndPost();
+	return true;
 }
 
 void SkiaPlayer::unint_frame (const shared_ptr<FrameInfo>& info __unused) {
-	for (list<SkBitmap>::iterator it = frames.begin(); it != frames.end(); it++)
+	for (vector<SkBitmap>::iterator it = frames.begin(); it != frames.end(); it++)
 		it->reset();
+}
+
+inline SkColorType SkiaPlayer::convertPixelFormat (PixelFormat format) {
+	switch (format) {
+		case PIXEL_FORMAT_RGBX_8888: return kN32_SkColorType;
+		case PIXEL_FORMAT_RGBA_8888: return kN32_SkColorType;
+		case PIXEL_FORMAT_RGBA_FP16: return kRGBA_F16_SkColorType;
+		case PIXEL_FORMAT_RGB_565:   return kRGB_565_SkColorType;
+		default:                     return kUnknown_SkColorType;
+	}
 }
 
 // ----------------------------------------------------------------------
@@ -111,19 +201,20 @@ GLPlayer::GLPlayer (shared_ptr<FrameInfo> info):FramePlayer(info) {
 	display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
 	eglInitialize(display, 0, 0);
 
-	EGLConfig config;
 	EGLint num_config;
 	eglChooseConfig(display, display_attrs, &config, 1, &num_config);
-	surface = eglCreateWindowSurface(display, config, nullptr, nullptr);
-	context = eglCreateContext(display, config, nullptr, nullptr);
-
-	if (eglMakeCurrent(display, surface, surface, context) == EGL_FALSE)
-		FPLog.E()<<"eglMakeCurrent fail"<<endl;
 }
 
-void GLPlayer::init_frame (const shared_ptr<FrameInfo>& info) {
+bool GLPlayer::init_frame (const shared_ptr<FrameInfo>& info) {
 	char *buf = nullptr;
 	int max_frames = info->cur_max_count();
+
+	egl_surface = eglCreateWindowSurface(display, config, surface.get(), nullptr);
+	context = eglCreateContext(display, config, nullptr, nullptr);
+	if (eglMakeCurrent(display, egl_surface, egl_surface, context) == EGL_FALSE) {
+		FPLog.E()<<"eglMakeCurrent fail"<<endl;
+		return false;
+	}
 
 	for (int i = 0; i < max_frames; i++) {
 		shared_ptr<istream> is = info->next_frame();
@@ -189,13 +280,16 @@ void GLPlayer::init_frame (const shared_ptr<FrameInfo>& info) {
 		glTexParameterx(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
 		glBindTexture(GL_TEXTURE_2D, 0);
-		frame_names.push_back(texture_id);		
+		frame_names.push_back(texture_id);
 	}
+
+	return true;
 }
 
-void GLPlayer::flush_frame(shared_ptr<istream> in __unused, int idx) const {
+bool GLPlayer::flush_frame(shared_ptr<istream> in __unused, int idx) const {
 	glBindTexture(GL_TEXTURE_2D, frame_names[idx]);
-	eglSwapBuffers(display, surface);
+	eglSwapBuffers(display, egl_surface);
+	return true;
 }
 
 void GLPlayer::unint_frame (const shared_ptr<FrameInfo>& info __unused) {
@@ -204,7 +298,7 @@ void GLPlayer::unint_frame (const shared_ptr<FrameInfo>& info __unused) {
 
 	eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 	eglDestroyContext(display, context);
-	eglDestroySurface(display, surface);
+	eglDestroySurface(display, egl_surface);
 	eglTerminate(display);
 }
 

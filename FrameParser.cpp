@@ -128,6 +128,7 @@ FrameMode FrameParser::frame_mode (const string& value) const {
 		return FRAME_MODE_NORMAL;
 }
 
+/* zip animation */
 shared_ptr<FrameInfo> FrameParser::parse_zip_frame (const string& path) {
 	shared_ptr<ZipFileRO> zip_file(ZipFileRO::open(path.c_str()));
 	if (!zip_file.get())
@@ -146,6 +147,7 @@ shared_ptr<FrameInfo> FrameParser::parse_zip_frame (const string& path) {
 	return shared_ptr<ZipFrameInfo>(new ZipFrameInfo(frame_desc, zip_file));
 }
 
+/* apk animation */
 shared_ptr<FrameInfo> FrameParser::parse_apk_frame (const string& path) {
 	shared_ptr<AssetManager> assetManager(new AssetManager());
 	shared_ptr<FrameInfo> null_rlt(nullptr);
@@ -184,6 +186,7 @@ shared_ptr<FrameInfo> FrameParser::parse_apk_frame (const string& path) {
 	return shared_ptr<ApkFrameInfo>(new ApkFrameInfo(frame_desc, assetManager));
 }
 
+/* dir animation */
 shared_ptr<FrameInfo> FrameParser::parse_dir_frame (const string& path) {
 	ifstream ifm(path + "/" + ENTRY_DESC);
 	if (!ifm.good()) {

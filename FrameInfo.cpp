@@ -28,6 +28,10 @@ Resolution FrameInfo::cur_resolution() {
 	return info.resolution;
 }
 
+void FrameInfo::reset_frame () {
+	idx = 0;
+}
+
 // ------------------------------------------------
 shared_ptr<istream> ZipFrameInfo::next_frame () {
 	string path = info.frame_path + "/" + info.frames[idx++];

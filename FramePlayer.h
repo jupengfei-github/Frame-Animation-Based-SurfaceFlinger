@@ -8,11 +8,15 @@
 #include <GLES/gl.h>
 #include <EGL/egl.h>
 
+#include <SkCanvas.h>
+#include <SkBitmap.h>
+#include <gui/Surface.h>
+#include <gui/SurfaceControl.h>
+
 #include "FrameInfo.h"
 
 using namespace std;
 
-class SkBitmap;
 namespace frame_animation {
 
 class FramePlayer : public thread {
@@ -21,9 +25,12 @@ class FramePlayer : public thread {
 	bool request_stop;
 
 	static void animation_thread (FramePlayer* const player);
+	bool init_display_surface();
+	void unint_display_surface();
 public:
-	FramePlayer (shared_ptr<FrameInfo> info) {
-		request_stop = true;
+	FramePlayer (shared_ptr<FrameInfo> info):thread(bind(animation_thread, this)) {
+		request_stop = false;
+		request_exit = false;
 		frame_info   = info;
 	}
 	virtual ~FramePlayer() {}
@@ -32,20 +39,27 @@ public:
 	void stop();
 	void pause();
 protected:
-	virtual void init_frame(const shared_ptr<FrameInfo>&) = 0;
-	virtual void flush_frame(shared_ptr<istream>, int) const = 0;
+	sp<Surface> surface;
+	sp<SurfaceControl> control;
+
+	virtual bool init_frame(const shared_ptr<FrameInfo>&) = 0;
+	virtual bool flush_frame(shared_ptr<istream>, int) const = 0;
 	virtual void unint_frame(const shared_ptr<FrameInfo>&) = 0;
 };
 
 // ------------------------------------
 struct SkiaPlayer : public FramePlayer {
+	SkiaPlayer (shared_ptr<FrameInfo> info):FramePlayer(info) {}
 	virtual ~SkiaPlayer() {}	
 protected:
-	virtual void init_frame (const shared_ptr<FrameInfo>&);
-	virtual void flush_frame(shared_ptr<istream>, int) const;
+	virtual bool init_frame (const shared_ptr<FrameInfo>&);
+	virtual bool flush_frame(shared_ptr<istream>, int) const;
 	virtual void unint_frame (const shared_ptr<FrameInfo>&);
 private:
-	list<SkBitmap> frames;
+	static inline SkColorType convertPixelFormat (PixelFormat format);
+
+	vector<SkBitmap> frames;
+	auto_ptr<SkCanvas> canvas;
 };
 
 // -----------------------------------
@@ -53,14 +67,15 @@ struct GLPlayer : public FramePlayer {
 	GLPlayer(shared_ptr<FrameInfo> info);
 	virtual ~GLPlayer() {}
 protected:
-	virtual void init_frame (const shared_ptr<FrameInfo>&);
-	virtual void flush_frame(shared_ptr<istream>, int) const;
+	virtual bool init_frame (const shared_ptr<FrameInfo>&);
+	virtual bool flush_frame(shared_ptr<istream>, int) const;
 	virtual void unint_frame (const shared_ptr<FrameInfo>&);
 private:
 	vector<GLuint> frame_names;
 	EGLDisplay display;
 	EGLDisplay context;
-	EGLDisplay surface;
+	EGLDisplay egl_surface;
+	EGLConfig  config;
 };
 
 }; //namespace frame_animation
