@@ -101,7 +101,7 @@ ZipStreamBuf::ZipStreamBuf (shared_ptr<ZipFileRO> zip, string name) {
 
 	ZipEntryRO entry = zip_file->findEntryByName(name.c_str());
 	if (entry == nullptr) {
-		FPLog.E()<<"open zipEntry "<<name<<" fail";
+		FPLog.E()<<"open zipEntry "<<name<<" fail"<<endl;
 		return;
 	}
 

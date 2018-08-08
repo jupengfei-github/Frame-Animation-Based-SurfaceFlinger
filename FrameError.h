@@ -5,10 +5,18 @@
 
 using namespace std;
 
-struct parse_exception : public exception {
+struct base_exception : public exception {
 	string desc;
-	parse_exception (const string exp):desc(exp) {}
+	base_exception (const string exp):desc(exp) {}
 	string& to_string() { return desc; }
+};
+
+struct parse_exception : public base_exception {
+	parse_exception (const string exp):base_exception(exp) {}
+};
+
+struct io_exception : public base_exception {
+	io_exception (const string exp):base_exception(exp) {}
 };
 
 #endif

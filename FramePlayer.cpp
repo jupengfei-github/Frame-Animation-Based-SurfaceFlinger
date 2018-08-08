@@ -3,6 +3,7 @@
 #include <SkData.h>
 #include <SkPaint.h>
 #include <SkImageInfo.h>
+#include <SkStream.h>
 
 #include <ui/PixelFormat.h>
 #include <ui/DisplayInfo.h>
@@ -12,9 +13,30 @@
 #include <android/graphics/GraphicsJNI.h>
 
 #include "FramePlayer.h"
+#include "FrameError.h"
 
 namespace frame_animation {
 
+class SkStreamAdapter : public SkStream {
+	shared_ptr<istream> instream;
+public:
+	SkStreamAdapter (shared_ptr<istream> in):instream(in) {}
+
+	virtual size_t read (void *buf, size_t len) {
+		instream->read(static_cast<char*>(buf), len);			
+		return instream->gcount();
+	}
+
+	virtual bool isAtEnd () const {
+		return instream->eof();
+	}
+
+	static std::unique_ptr<SkStreamAsset> MakeFromFile (const char path[] __unused) {
+		throw io_exception("Unsupported Operation");
+	}
+};
+
+// --------------------------------------------------
 void FramePlayer::start () {
 	request_stop = false;
 }
@@ -30,27 +52,25 @@ void FramePlayer::stop () {
 bool FramePlayer::init_display_surface () {
 	DisplayInfo dinfo;
 
-	FPLog.I()<<"init_display_surface 1"<<endl;
 	sp<IBinder> dtoken(SurfaceComposerClient::getBuiltInDisplay(ISurfaceComposer::eDisplayIdMain));
-
-	FPLog.I()<<"init_display_surface 2"<<endl;
 	status_t status = SurfaceComposerClient::getDisplayInfo(dtoken, &dinfo);
 	if (status) {
 		FPLog.E()<<"animation_thread getDisplayInfo fail"<<endl;
 		return false;
 	}
 
-	FPLog.I()<<"init_display_surface 3"<<endl;
-	unique_ptr<SurfaceComposerClient> session(new SurfaceComposerClient());
+	sp<SurfaceComposerClient> session = new SurfaceComposerClient();
 	if (!session.get()) {
 		FPLog.E()<<"create SurfaceComposerClient fail"<<endl;
 		return false;
 	}
 
-	FPLog.I()<<"init_display_surface 4"<<endl;
-	control = session->createSurface(String8("frameAnimation"), dinfo.w, dinfo.h, PIXEL_FORMAT_RGBX_8888);
+	control = session->createSurface(String8("frameAnimation"), dinfo.w, dinfo.h, PIXEL_FORMAT_RGB_565);
+	if (!control.get()) {
+		FPLog.E()<<"createSurface fail"<<endl;
+		return false;
+	}
 
-	FPLog.I()<<"init_display_surface 5"<<endl;
 	surface = control->getSurface();
 	FPLog.E()<<"create Surface width : "<<dinfo.w<<" height : "<<dinfo.h<<endl;
 
@@ -80,7 +100,7 @@ void FramePlayer::animation_thread (FramePlayer* const player) {
 		return;
 	}
 
-	int idx = 0;
+/*	int idx = 0;
 	bool exit;
 	while (!player->request_exit) {
 		const long now = ns2ms(systemTime());
@@ -102,7 +122,7 @@ void FramePlayer::animation_thread (FramePlayer* const player) {
 		const long sleepTime = ns2ms(systemTime()) - now;
 		if (sleepTime > 0)
 			sleep(sleepTime);
-	}
+	} */
 
 	FPLog.I()<<"animation_thread stoped"<<endl;
 	player->unint_frame(info);
@@ -112,6 +132,7 @@ void FramePlayer::animation_thread (FramePlayer* const player) {
 // -----------------------------------------------------------------------
 bool SkiaPlayer::init_frame (const shared_ptr<FrameInfo>& frame_info) {
 	ANativeWindow_Buffer buffer;
+
 	status_t err = surface->lock(&buffer, nullptr);
 	if (err < 0) {
 		FPLog.E()<<"Surface lock buffer fail"<<endl;
@@ -122,6 +143,7 @@ bool SkiaPlayer::init_frame (const shared_ptr<FrameInfo>& frame_info) {
 		convertPixelFormat(buffer.format),
 		buffer.format == PIXEL_FORMAT_RGBX_8888? kOpaque_SkAlphaType : kPremul_SkAlphaType,
 		GraphicsJNI::defaultColorSpace());
+
 	SkBitmap bitmap;
 	ssize_t bpr = buffer.stride * bytesPerPixel(buffer.format);
 	bitmap.setInfo(info, bpr);
@@ -133,33 +155,31 @@ bool SkiaPlayer::init_frame (const shared_ptr<FrameInfo>& frame_info) {
 
 	int frame_cnt = frame_info->cur_max_count();
 	for (int i = 0; i < frame_cnt; i++) {
-		char *buf = nullptr;
-
 		shared_ptr<istream> is = frame_info->next_frame();
+		if (!is.get())
+			continue;
+
 		is->seekg(0, ios_base::end);
 		size_t len = is->tellg();
 		is->seekg(0, ios_base::beg);
 
-		buf = static_cast<char*>(malloc(sizeof(char)*len));
-		if (buf == nullptr) {
-			FPLog.E()<<"SkiaPlayer malloc buffer fail"<<endl;
-			continue;
-		}
-
-		if (is->read(buf, len)) {
-			FPLog.E()<<"SkiaPlayer read fail"<<endl;
-			free(buf);
-			continue;
-		}
-
+		FPLog.E()<<"init_frame 5"<<endl;
 		SkBitmap bitmap;
-		sk_sp<SkData>  data  = SkData::MakeWithoutCopy(buf, len);
-		sk_sp<SkImage> image = SkImage::MakeFromEncoded(data);
-		image->asLegacyBitmap(&bitmap, SkImage::kRO_LegacyBitmapMode);
-		free(buf);
+		SkStreamAdapter adapter(is);
+		sk_sp<SkData> data = SkData::MakeFromStream(&adapter, 100);
 
+		FPLog.E()<<"init_frame 6"<<endl;
+		sk_sp<SkImage> image = SkImage::MakeFromEncoded(data);
+
+		FPLog.E()<<"init_frame 7"<<endl;
+		image->asLegacyBitmap(&bitmap, SkImage::kRO_LegacyBitmapMode);
+
+		FPLog.E()<<"init_frame 8"<<endl;
 		frames.push_back(bitmap);
 	}
+
+	FPLog.E()<<"init_frame 4"<<endl;
+
 
 	return true;
 }
@@ -218,24 +238,16 @@ bool GLPlayer::init_frame (const shared_ptr<FrameInfo>& info) {
 
 	for (int i = 0; i < max_frames; i++) {
 		shared_ptr<istream> is = info->next_frame();
+		if (!is.get())
+			continue;
+
 		is->seekg(0, ios_base::end);	
 		size_t size = is->tellg();
 		is->seekg(0, ios_base::beg);
 
-		buf = static_cast<char*>(malloc(size * sizeof(char)));
-		if (buf == nullptr) {
-			FPLog.E()<<"GLPlayer init_frame malloc fail"<<endl;
-			continue;
-		}
-
-		if (is->read(buf, size)) {
-			FPLog.E()<<"GLPlayer read fail"<<endl;
-			free(buf);
-			continue;
-		}
-
 		SkBitmap bitmap;
-		sk_sp<SkData> data = SkData::MakeWithoutCopy(buf, size);
+		SkStreamAdapter adapter(is);
+		sk_sp<SkData> data = SkData::MakeFromStream(&adapter, size);
 		sk_sp<SkImage> image = SkImage::MakeFromEncoded(data);
 		if (!image.get()) {
 			FPLog.E()<<"MakeFromEncoded : "<<i<<" fail"<<endl;

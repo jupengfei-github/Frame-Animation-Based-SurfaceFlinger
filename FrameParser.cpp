@@ -88,7 +88,7 @@ void FrameParser::parse_desc_item (const string& key, const string& value) {
 	else if (key == DESC_KEY_RATE)
 		frame_desc.frame_rate = lexical_cast<int>(value);
 	else if (key == DESC_KEY_FRAMES) {
-		regex frame_regex("[^,]+");
+		regex frame_regex("[\\w\\.]+");
 		smatch frame_match;
 		string ite_value = value;
 		while (regex_search(ite_value, frame_match, frame_regex)) {
