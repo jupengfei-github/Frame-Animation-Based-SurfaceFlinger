@@ -190,7 +190,7 @@ shared_ptr<FrameInfo> FrameParser::parse_apk_frame (const string& path) {
 shared_ptr<FrameInfo> FrameParser::parse_dir_frame (const string& path) {
 	ifstream ifm(path + "/" + ENTRY_DESC);
 	if (!ifm.good()) {
-		FPLog.E()<<"open "<<path<<" fail"<<endl;
+		FPLog.E()<<"parse_dir_frame open "<<path<<" fail"<<endl;
 		ifm.close();
 		return shared_ptr<FrameInfo>(nullptr);
 	}
@@ -201,10 +201,9 @@ shared_ptr<FrameInfo> FrameParser::parse_dir_frame (const string& path) {
 		desc_str += tmp;
 	}
 	ifm.close();
-	cout<<desc_str<<endl;
 
 	parse_desc_file(desc_str);
-	return shared_ptr<DIRFrameInfo>(new DIRFrameInfo(frame_desc));
+	return shared_ptr<DIRFrameInfo>(new DIRFrameInfo(path, frame_desc));
 }
 
 }; //namespace frame_animation

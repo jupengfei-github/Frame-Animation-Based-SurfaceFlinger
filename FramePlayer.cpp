@@ -23,10 +23,7 @@ public:
 	SkStreamAdapter (shared_ptr<istream> in):instream(in) {}
 
 	virtual size_t read (void *buf, size_t len) {
-		FPLog.I()<<"SkStreamAdapter read "<<len<<endl;
 		instream->read(static_cast<char*>(buf), len);			
-		FPLog.I()<<"SkStreamAdapter end "<<len<<endl;
-
 		return instream->gcount();
 	}
 
@@ -75,6 +72,8 @@ bool FramePlayer::init_display_surface () {
 	}
 
 	surface = control->getSurface();
+	surface_width  = dinfo.w;
+	surface_height = dinfo.h;
 	FPLog.E()<<"create Surface width : "<<dinfo.w<<" height : "<<dinfo.h<<endl;
 
 	SurfaceComposerClient::openGlobalTransaction(); 
@@ -101,7 +100,7 @@ void FramePlayer::animation_thread (FramePlayer* const player) {
 		return;
 	}
 
-	if (!player->init_frame(info)) {
+	if (!player->init_frame()) {
 		player->unint_display_surface();
 		FPLog.E()<<"init_frame fail"<<endl;
 		return;
@@ -132,12 +131,12 @@ void FramePlayer::animation_thread (FramePlayer* const player) {
 	}
 
 	FPLog.I()<<"animation_thread stoped"<<endl;
-	player->unint_frame(info);
+	player->unint_frame();
 	player->unint_display_surface();
 }
 
 // -----------------------------------------------------------------------
-bool SkiaPlayer::init_frame (const shared_ptr<FrameInfo>& frame_info) {
+bool SkiaPlayer::init_frame () {
 	ANativeWindow_Buffer buffer;
 
 	status_t err = surface->lock(&buffer, nullptr);
@@ -145,6 +144,10 @@ bool SkiaPlayer::init_frame (const shared_ptr<FrameInfo>& frame_info) {
 		FPLog.E()<<"Surface lock buffer fail"<<endl;
 		return false;
 	}
+
+	Resolution rl = frame_info->cur_resolution();
+	xoff = max(0, (surface_width  - rl.width)) / 2;
+	yoff = max(0, (surface_height - rl.height)) / 2;
 
 	SkImageInfo info = SkImageInfo::Make(buffer.width, buffer.height,
 		convertPixelFormat(buffer.format),
@@ -191,12 +194,16 @@ bool SkiaPlayer::flush_frame(shared_ptr<istream> in __unused, int idx) const {
 	SkPaint paint;
 	const SkBitmap bitmap = frames[idx];
 
-	canvas->drawBitmap(bitmap, 0, 0, &paint);
+	Resolution rl = frame_info->cur_resolution();
+	int x = xoff + max(0, (rl.width - bitmap.width())) / 2;
+	int y = yoff + max(0, (rl.height - bitmap.height())) / 2;
+
+	canvas->drawBitmap(bitmap, x, y, &paint);
 	surface->unlockAndPost();
 	return true;
 }
 
-void SkiaPlayer::unint_frame (const shared_ptr<FrameInfo>& info __unused) {
+void SkiaPlayer::unint_frame () {
 	for (vector<SkBitmap>::iterator it = frames.begin(); it != frames.end(); it++)
 		it->reset();
 }
@@ -228,9 +235,9 @@ GLPlayer::GLPlayer (shared_ptr<FrameInfo> info):FramePlayer(info) {
 	eglChooseConfig(display, display_attrs, &config, 1, &num_config);
 }
 
-bool GLPlayer::init_frame (const shared_ptr<FrameInfo>& info) {
+bool GLPlayer::init_frame () {
 	char *buf = nullptr;
-	int max_frames = info->cur_max_count();
+	int max_frames = frame_info->cur_max_count();
 
 	egl_surface = eglCreateWindowSurface(display, config, surface.get(), nullptr);
 	context = eglCreateContext(display, config, nullptr, nullptr);
@@ -240,7 +247,7 @@ bool GLPlayer::init_frame (const shared_ptr<FrameInfo>& info) {
 	}
 
 	for (int i = 0; i < max_frames; i++) {
-		shared_ptr<istream> is = info->next_frame();
+		shared_ptr<istream> is = frame_info->next_frame();
 		if (!is.get())
 			continue;
 
@@ -307,7 +314,7 @@ bool GLPlayer::flush_frame(shared_ptr<istream> in __unused, int idx) const {
 	return true;
 }
 
-void GLPlayer::unint_frame (const shared_ptr<FrameInfo>& info __unused) {
+void GLPlayer::unint_frame () {
 	for (vector<GLuint>::iterator it = frame_names.begin(); it != frame_names.end(); it++)
 		glDeleteTextures(1, &(*it));
 

@@ -83,9 +83,14 @@ private:
 };
 
 struct DIRFrameInfo : public FrameInfo {
-	DIRFrameInfo (DescriptionInfo info):FrameInfo(info) {}
+	DIRFrameInfo (string path, DescriptionInfo info):FrameInfo(info) {
+		base_path = path;
+	}
+
 	virtual shared_ptr<istream> next_frame();
 	virtual ~DIRFrameInfo() {}
+private:
+	string base_path;
 };
 
 }; //namespace frame_animation

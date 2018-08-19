@@ -68,10 +68,11 @@ shared_ptr<istream> ApkFrameInfo::next_frame () {
 
 // ----------------------------------------------
 shared_ptr<istream> DIRFrameInfo::next_frame () {
-	string path = "/sdcard/animation/" + info.frame_path + "/" + info.frames[idx];
+	string path = base_path + "/" + info.frame_path + "/" + info.frames[idx++];
+
 	shared_ptr<istream> ifm(new ifstream(path));
 	if (!ifm->good()) {
-		FPLog.E()<<"next_frame : "<<path<<" failed";
+		FPLog.E()<<"DIRFrameInfo next_frame "<<path<<" failed";
 		return shared_ptr<istream>(nullptr);
 	}
 
