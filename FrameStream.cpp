@@ -106,17 +106,27 @@ ZipStreamBuf::ZipStreamBuf (shared_ptr<ZipFileRO> zip, string name) {
 	}
 
 	file_map = unique_ptr<FileMap>(zip_file->createEntryFileMap(entry));
-	char* ptr = static_cast<char*>(file_map->getDataPtr());
+	char *ptr = static_cast<char*>(file_map->getDataPtr());
+	length =  file_map->getDataLength();
 
+	FPLog.I()<<"ZipStreamBuf dataLength : "<<length<<endl;
 	setg(ptr, ptr, ptr + file_map->getDataLength());
 }
 
 int ZipStreamBuf::underflow () {
-	return EOF;
+	if (gptr() < egptr())
+		return traits_type::to_int_type(*gptr());
+	else
+		return EOF;
 }
 
-int ZipStreamBuf::uflow () {
-	return EOF;
+streambuf::pos_type ZipStreamBuf::seekoff(off_type off, ios_base::seekdir way, ios_base::openmode which) {
+	if (way == ios_base::beg)
+		return seekpos(off, which);
+	else if (way == ios_base::cur)
+		return seekpos(gptr() - eback() + off, which);
+	else
+		return seekpos(off + length, which);
 }
 
 }; //namespace frame_animation

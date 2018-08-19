@@ -41,11 +41,13 @@ class ZipStreamBuf : public streambuf {
 	shared_ptr<ZipFileRO> zip_file;
 	string file_name;
 	unique_ptr<FileMap> file_map;
+	int length;
 public:
 	ZipStreamBuf (shared_ptr<ZipFileRO>, string);
 
-	virtual int underflow();
-	virtual int uflow();
+	virtual int underflow() override;
+protected:
+	virtual pos_type seekoff(off_type off, ios_base::seekdir way, ios_base::openmode which) override;
 };
 
 }; //namespace frame_animation
