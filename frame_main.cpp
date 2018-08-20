@@ -9,6 +9,12 @@
 #include "FramePlayer.h"
 #include "FrameInfo.h"
 
+#define ANIM_PATH_ZIP  "/sdcard/animation.zip"
+#define ANIM_PATH_DIR  "/sdcard/animation"
+#define ANIM_PATH_RES  "/sdcard/animation.apk"
+
+#define ANIM_PATH      ANIM_PATH_DIR
+
 using namespace std;
 using namespace frame_animation;
 
@@ -17,7 +23,7 @@ int main(void) {
 	proc->startThreadPool();
 
 	FrameParser frame_parser;
-	shared_ptr<FrameInfo> frame_info = frame_parser.parse_frame(string("/sdcard/animation"));
+	shared_ptr<FrameInfo> frame_info = frame_parser.parse_frame(string(ANIM_PATH));
 	auto_ptr<FramePlayer> frame_player = auto_ptr<FramePlayer>(new SkiaPlayer(frame_info));
 	frame_player->start();
 

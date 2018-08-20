@@ -91,7 +91,7 @@ void FramePlayer::unint_display_surface () {
 void FramePlayer::animation_thread (FramePlayer* const player) {
 	shared_ptr<FrameInfo> info = player->frame_info;
 	int frame_time = 1000 / info->cur_rate();
-	FrameMode mode = info->cur_mode();
+	AnimMode mode = info->cur_mode();
 	int frame_cnt  = info->cur_max_count();
 
 	FPLog.I()<<"animation_thread started"<<endl;
@@ -145,7 +145,7 @@ bool SkiaPlayer::init_frame () {
 		return false;
 	}
 
-	Resolution rl = frame_info->cur_resolution();
+	Size rl = frame_info->cur_resolution();
 	xoff = max(0, (surface_width  - rl.width)) / 2;
 	yoff = max(0, (surface_height - rl.height)) / 2;
 
@@ -194,7 +194,7 @@ bool SkiaPlayer::flush_frame(shared_ptr<istream> in __unused, int idx) const {
 	SkPaint paint;
 	const SkBitmap bitmap = frames[idx];
 
-	Resolution rl = frame_info->cur_resolution();
+	Size rl = frame_info->cur_resolution();
 	int x = xoff + max(0, (rl.width - bitmap.width())) / 2;
 	int y = yoff + max(0, (rl.height - bitmap.height())) / 2;
 
