@@ -1,6 +1,11 @@
+#include <regex>
+#include <sstream>
 #include <fstream>
-#include <androidfw/ResourceTypes.h>
+#include <androidfw/ZipFileRO.h>
+#include <androidfw/Asset.h>
 #include <androidfw/AssetManager.h>
+#include <androidfw/ResourceTypes.h>
+
 #include "FrameInfo.h"
 
 using namespace std;
@@ -22,7 +27,9 @@ const string FrameInfo::DESC_KEY_RESOLUTION = "resolution";
 const string FrameInfo::DESC_KEY_RATE       = "rate";
 const string FrameInfo::DESC_KEY_FRAMES     = "frames";
 const string FrameInfo::DESC_KEY_FRAME_PATH = "frame_path";
-const string FrameInfo::DESC_KEY_FRAME_TYPE = "frame_type";
+
+/* desc file name */
+const string FrameInfo::ENTRY_DESC = "desc.txt";
 
 int FrameInfo::count() {
 	return max_frame;
@@ -60,47 +67,45 @@ AnimMode FrameInfo::frame_mode (const string& value) const {
 }
 
 void FrameInfo::dump () const {
-	FPLog.I()<<"frame_path : "<<frame_desc.frame_path<<endl;
-	FPLog.I()<<"frame_type : "<<type<<endl;
-	FPLog.I()<<"frame_mode : "<<frame_desc.frame_mode<<endl;
-	FPLog.I()<<"frame_rate : "<<frame_desc.frame_rate<<endl;
-	FPLog.I()<<"frame_resolution : ["<<frame_desc.resolution.width<<"x"<<frame_desc.resolution.height<<"]"<<endl;
+	FPLog.I()<<"FrameInfo : "<<endl;
+	FPLog.I()<<"Path  : "<<info.frame_path<<endl;
+	FPLog.I()<<"Mode  : "<<info.mode<<endl;
+	FPLog.I()<<"Rate  : "<<info.rate<<endl;
+	FPLog.I()<<"Size  : ["<<info.size.width<<"x"<<info.size.height<<"]"<<endl;
 }
 
-void FrameInfo::parse_desc_item(const string&, const string&) {
+void FrameInfo::parse_desc_item(const string& key, const string& value) {
 	if (key == DESC_KEY_RESOLUTION) {
 		regex resolution_regex("(\\d+)x(\\d+)");
 		smatch result;
 		if (regex_search(value, result, resolution_regex)) {
-			frame_desc.resolution.width  = lexical_cast<int>(string(result[1].first, result[1].second));
-			frame_desc.resolution.height = lexical_cast<int>(string(result[2].first, result[2].second));
+			info.size.width  = lexical_cast<int>(string(result[1].first, result[1].second));
+			info.size.height = lexical_cast<int>(string(result[2].first, result[2].second));
 		}
 		else
 			FPLog.E()<<"invalide resoution : "<<value<<endl;
 	}
 	else if (key == DESC_KEY_RATE)
-		frame_desc.frame_rate = lexical_cast<int>(value);
+		info.rate = lexical_cast<int>(value);
 	else if (key == DESC_KEY_FRAMES) {
 		regex frame_regex("[\\w\\.]+");
 		smatch frame_match;
 		string ite_value = value;
 		while (regex_search(ite_value, frame_match, frame_regex)) {
-			frame_desc.frames.push_back(string(frame_match[0].first, frame_match[0].second));
+			info.frames.push_back(string(frame_match[0].first, frame_match[0].second));
 			ite_value = frame_match.suffix().str();
 		}
 	}
 	else if (key == DESC_KEY_FRAME_PATH)
-		frame_desc.frame_path = value;
-	else if (key == DESC_KEY_FRAME_TYPE)
-		type = frame_type(value);
+		info.frame_path = value;
 	else if (key == DESC_KEY_MODE)
-		frame_desc.frame_mode = frame_mode(value);
+		info.mode = frame_mode(value);
 	else 
 		FPLog.E()<<"illegal desc item "<<value<<endl;
 }
 
-void FrameInfo::parse_anim_info (string& path) {
-	string anim_str = parse_anim_file(path);
+void FrameInfo::parse_anim_info () {
+	string anim_str = parse_anim_file();
 
 	regex item_pattern("\\s*(\\w+)\\s*:\\s*\\[([^\\[\\]]+)\\]");
 	smatch item_match;
@@ -115,6 +120,30 @@ void FrameInfo::parse_anim_info (string& path) {
 	}
 }
 
+shared_ptr<FrameInfo> FrameInfo::create_from_type (const string& path, AnimResType type) {
+	if (FRAME_RES_TYPE_APK == type) {
+		shared_ptr<AssetManager> assetManager(new AssetManager());
+		String8 s8_path(path.c_str(), path.length());
+
+		if (!assetManager->addAssetPath(s8_path, nullptr))
+			throw new parse_exception("parse_apk_frame addAssetPath fail");
+
+		return shared_ptr<FrameInfo>(new ApkFrameInfo(assetManager));
+	}
+	else if (FRAME_RES_TYPE_ZIP == type) {
+		shared_ptr<ZipFileRO> zip_file(ZipFileRO::open(path.c_str()));
+		if (!zip_file.get())
+			throw parse_exception("open " + path + " fail");
+
+		return shared_ptr<FrameInfo>(new ZipFrameInfo(zip_file));
+	}
+	else if (FRAME_RES_TYPE_DIR == type) {
+		return shared_ptr<FrameInfo>(new DIRFrameInfo(path));
+	}
+	else
+		throw new parse_exception("unknown anim_res_type " + path);
+}
+
 // ------------------------------------------------
 shared_ptr<istream> ZipFrameInfo::next_frame () {
 	if (cur_frame >= max_frame)
@@ -126,11 +155,7 @@ shared_ptr<istream> ZipFrameInfo::next_frame () {
 	return shared_ptr<istream>(new istream(new ZipStreamBuf(zip_file, info.frame_path + "/" + frame_name)));
 }
 
-string ZipFrameInfo::parse_anim_file (const string& path) {
-	shared_ptr<ZipFileRO> zip_file(ZipFileRO::open(path.c_str()));
-	if (!zip_file.get())
-		throw parse_exception("open " + path + " fail");
-
+string ZipFrameInfo::parse_anim_file () {
 	ZipEntryRO desc = zip_file->findEntryByName(ENTRY_DESC.c_str());
 	if (desc == nullptr)
 		throw parse_exception("find entry " + ENTRY_DESC + " fail");
@@ -144,6 +169,11 @@ string ZipFrameInfo::parse_anim_file (const string& path) {
 }
 
 // -----------------------------------------------
+const string ApkFrameInfo::APK_PACKAGE   = "animation";
+const string ApkFrameInfo::APK_NAME      = "desc";
+const string ApkFrameInfo::APK_DESC_TYPE = "raw";
+const string ApkFrameInfo::APK_ANIM_TYPE = "drawable";
+
 shared_ptr<istream> ApkFrameInfo::next_frame () {
 	const ResTable& resTable = assetManager->getResources();
 
@@ -176,16 +206,7 @@ shared_ptr<istream> ApkFrameInfo::next_frame () {
 	return shared_ptr<istream>(new istream(new ResStreamBuf(asset)));
 }
 
-string ApkFrameInfo::parse_anim_file (const string& path) {
-	shared_ptr<AssetManager> assetManager(new AssetManager());
-	shared_ptr<FrameInfo> null_rlt(nullptr);
-
-	String8 s8_path(path.c_str(), path.length());
-	if (!assetManager->addAssetPath(s8_path, nullptr)) {
-		FPLog.E()<<"parse_apk_frame addAssetPath fail"<<endl;
-		return null_rlt;
-	}
-
+string ApkFrameInfo::parse_anim_file () {
 	const ResTable& resTable = assetManager->getResources();
 	String16 s16_name(APK_NAME.c_str());
 	String16 s16_type(APK_DESC_TYPE.c_str());
@@ -194,8 +215,8 @@ string ApkFrameInfo::parse_anim_file (const string& path) {
 	uint32_t id = resTable.identifierForName(s16_name, s16_name.size(),
 		s16_type, s16_type.size(), s16_pkg, s16_pkg.size());
 	if (id == 0) {
-		FPLog.E()<<"obtain identifier "<<path<<" fail";
-		return null_rlt;
+		FPLog.E()<<"obtain identifier "<<APK_NAME<<" fail";
+		return string();
 	}
 
 	Res_value value;
@@ -221,7 +242,9 @@ shared_ptr<istream> DIRFrameInfo::next_frame () {
 		cur_frame++;
 
 	string frame_name = info.frames[cur_frame];
-	shared_ptr<istream> ifm(new ifstream(path + "/" + frame_name));
+	string path = parent_path + "/" + frame_name;
+
+	shared_ptr<istream> ifm(new ifstream(path));
 	if (!ifm->good()) {
 		FPLog.E()<<"next_frame open "<<path<<" failed"<<endl;
 		return shared_ptr<istream>(nullptr);
@@ -230,8 +253,10 @@ shared_ptr<istream> DIRFrameInfo::next_frame () {
 	return ifm;
 }
 
-string DIRFrameInfo::parse_anim_file (const string& path) {
-	ifstream ifm(path + "/" + ENTRY_DESC);
+string DIRFrameInfo::parse_anim_file () {
+	string path = parent_path + "/" + ENTRY_DESC;
+
+	ifstream ifm(path);
 	if (!ifm.good()) {
 		FPLog.E()<<"parse_dir_frame open "<<path<<" fail"<<endl;
 		ifm.close();

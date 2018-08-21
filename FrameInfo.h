@@ -5,7 +5,9 @@
 #include <vector>
 #include <androidfw/ZipFileRO.h>
 #include <androidfw/AssetManager.h>
+
 #include "FrameStream.h"
+#include "FrameError.h"
 
 using namespace std;
 using namespace android;
@@ -35,7 +37,6 @@ enum AnimMode {
 
 /* Animation Information */
 struct AnimInfo {
-	string parent_path;  /* Root Directory */
 	string frame_path;   /* Images Directory Relative Root */
 	vector<string> frames; /* Frame Image Name Relative Images */
 	AnimMode mode;  /* reapte/reverse/normal */
@@ -58,13 +59,17 @@ class FrameInfo {
 	static const string FRAME_MODE_NORMAL_STR;
 
 	void parse_desc_item(const string&, const string&);
-	AnimMode frame_mode (const string& value) const;
+	AnimMode frame_mode (const string&) const;
 	void dump () const;
 protected:
+	/* Frame Info FileName */
+	static const string ENTRY_DESC;
+
 	int cur_frame; /* current frame */
 	int max_frame; /* max frames */
 	AnimInfo info;
  
+	virtual string parse_anim_file() = 0;
 public:
 	virtual ~FrameInfo () {}
 
@@ -75,48 +80,51 @@ public:
 	void reset();
 	Size size();
 
-	void parse_anim_info (const string&);
+	void parse_anim_info ();
 	virtual shared_ptr<istream> next_frame() = 0;
-	virtual string parse_anim_file(const string&) = 0;
+
+	static shared_ptr<FrameInfo> create_from_type (const string&, AnimResType type);
 };
 
 // --------------------------------------------------------
 class ZipFrameInfo : public FrameInfo {
 	shared_ptr<ZipFileRO> zip_file;
 public:
-	ZipFrameInfo (AnimInfo info, shared_ptr<ZipFileRO> zip):FrameInfo(info) {
+	ZipFrameInfo (shared_ptr<ZipFileRO> zip) {
 		zip_file = zip;
 	}
 	virtual ~ZipFrameInfo () {}
 
 	virtual shared_ptr<istream> next_frame() override;
-	virtual string parse_anim_file (const string&) override;
+protected:
+	virtual string parse_anim_file () override;
 };
 
 // --------------------------------------------------------
 class ApkFrameInfo : public FrameInfo {
-	static const string APK_PACKAGE   = "animation";
-	static const string APK_NAME      = "desc";
-	static const string APK_DESC_TYPE = "raw";
-	static const string APK_ANIM_TYPE = "drawable";
+	static const string APK_PACKAGE;
+	static const string APK_NAME;
+	static const string APK_DESC_TYPE;
+	static const string APK_ANIM_TYPE;
 
 	shared_ptr<AssetManager> assetManager;
 public:
-	ApkFrameInfo (AnimInfo info, shared_ptr<AssetManager> assetManager):FrameInfo(info),assetManager(assetManager) {}
+	ApkFrameInfo (shared_ptr<AssetManager> assetManager):assetManager(assetManager) {}
 
 	virtual shared_ptr<istream> next_frame() override;
-	virtual string parse_anim_file (const string&) override;
 	virtual ~ApkFrameInfo() {}
+protected:
+	virtual string parse_anim_file () override;
 };
 
 class DIRFrameInfo : public FrameInfo {
-	string base_path;
+	string parent_path; /* Root Path */
 public:
-	DIRFrameInfo (AnimInfo info):FrameInfo(info) {}
-
+	DIRFrameInfo (const string& path):parent_path(path) {}
 	virtual shared_ptr<istream> next_frame() override;
-	virtual string parse_anim_file (const string&) override;
 	virtual ~DIRFrameInfo() {}
+protected:
+	virtual string parse_anim_file () override;
 };
 
 }; //namespace frame_animation

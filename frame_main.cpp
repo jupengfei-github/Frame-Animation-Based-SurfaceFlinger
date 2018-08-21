@@ -23,7 +23,7 @@ int main(void) {
 	proc->startThreadPool();
 
 	FrameParser frame_parser;
-	shared_ptr<FrameInfo> frame_info = frame_parser.parse_frame(string(ANIM_PATH));
+	shared_ptr<FrameInfo> frame_info = frame_parser.parse(string(ANIM_PATH));
 	auto_ptr<FramePlayer> frame_player = auto_ptr<FramePlayer>(new SkiaPlayer(frame_info));
 	frame_player->start();
 

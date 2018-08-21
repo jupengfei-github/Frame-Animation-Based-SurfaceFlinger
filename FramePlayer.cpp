@@ -90,9 +90,9 @@ void FramePlayer::unint_display_surface () {
 
 void FramePlayer::animation_thread (FramePlayer* const player) {
 	shared_ptr<FrameInfo> info = player->frame_info;
-	int frame_time = 1000 / info->cur_rate();
-	AnimMode mode = info->cur_mode();
-	int frame_cnt  = info->cur_max_count();
+	int frame_time = 1000 / info->rate();
+	AnimMode mode = info->mode();
+	int frame_cnt  = info->count();
 
 	FPLog.I()<<"animation_thread started"<<endl;
 	if (!player->init_display_surface()) {
@@ -110,10 +110,10 @@ void FramePlayer::animation_thread (FramePlayer* const player) {
 	bool exit;
 	while (!player->request_exit) {
 		const long now = ns2ms(systemTime());
-		if (info->cur_idx() >= frame_cnt) {
+		if (info->idx() >= frame_cnt) {
 			if (mode == FRAME_MODE_REPEATE) {
 				idx = 0;
-				info->reset_frame();
+				info->reset();
 			}
 			else
 				break;
@@ -145,7 +145,7 @@ bool SkiaPlayer::init_frame () {
 		return false;
 	}
 
-	Size rl = frame_info->cur_resolution();
+	Size rl = frame_info->size();
 	xoff = max(0, (surface_width  - rl.width)) / 2;
 	yoff = max(0, (surface_height - rl.height)) / 2;
 
@@ -163,7 +163,7 @@ bool SkiaPlayer::init_frame () {
 		bitmap.setPixels(nullptr);
 	canvas = auto_ptr<SkCanvas>(new SkCanvas(bitmap));
 
-	int frame_cnt = frame_info->cur_max_count();
+	int frame_cnt = frame_info->count();
 	for (int i = 0; i < frame_cnt; i++) {
 		shared_ptr<istream> is = frame_info->next_frame();
 		if (!is.get() || !is->good())
@@ -194,7 +194,7 @@ bool SkiaPlayer::flush_frame(shared_ptr<istream> in __unused, int idx) const {
 	SkPaint paint;
 	const SkBitmap bitmap = frames[idx];
 
-	Size rl = frame_info->cur_resolution();
+	Size rl = frame_info->size();
 	int x = xoff + max(0, (rl.width - bitmap.width())) / 2;
 	int y = yoff + max(0, (rl.height - bitmap.height())) / 2;
 
@@ -237,7 +237,7 @@ GLPlayer::GLPlayer (shared_ptr<FrameInfo> info):FramePlayer(info) {
 
 bool GLPlayer::init_frame () {
 	char *buf = nullptr;
-	int max_frames = frame_info->cur_max_count();
+	int max_frames = frame_info->count();
 
 	egl_surface = eglCreateWindowSurface(display, config, surface.get(), nullptr);
 	context = eglCreateContext(display, config, nullptr, nullptr);

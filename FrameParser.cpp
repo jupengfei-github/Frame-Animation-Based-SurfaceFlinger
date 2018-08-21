@@ -1,11 +1,4 @@
-#include <regex>
-#include <sstream>
 #include <iostream>
-#include <fstream>
-#include <androidfw/ZipFileRO.h>
-#include <androidfw/Asset.h>
-#include <androidfw/AssetManager.h>
-#include <androidfw/ResourceTypes.h>
 
 #include "FrameParser.h"
 #include "FrameStream.h"
@@ -18,16 +11,23 @@ const string FrameParser::FRAME_TYPE_ZIP_STR = "zip";
 const string FrameParser::FRAME_TYPE_APK_STR = "apk";
 const string FrameParser::FRAME_TYPE_DIR_STR = "dir";
 
-shared_ptr<FrameInfo> FrameParser::parse (const string& path) {
-	AnimResType type = frame_type(path);
-	return FrameInfo::create_from_type(type);
-}
-
 bool ends_with (const string& str, const string& suffix) {
 	return str.rfind(suffix) == (str.length() - suffix.length());
 }
 
-FrameParser::AnimResType FrameParser::frame_type (const string& value) const {
+shared_ptr<FrameInfo> FrameParser::parse (const string& path) {
+	string type_str;
+	if (ends_with(path, FRAME_TYPE_ZIP_STR))
+		type_str = FRAME_TYPE_ZIP_STR;
+	else if (ends_with(path, FRAME_TYPE_APK_STR))
+		type_str = FRAME_TYPE_APK_STR;
+	else
+		type_str = FRAME_TYPE_DIR_STR;
+
+	return FrameInfo::create_from_type(path, frame_type(type_str));
+}
+
+AnimResType FrameParser::frame_type (const string& value) {
 	if (value == FRAME_TYPE_APK_STR)
 		return FRAME_RES_TYPE_APK;
 	else if (value == FRAME_TYPE_ZIP_STR)
