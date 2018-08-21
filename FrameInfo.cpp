@@ -35,10 +35,6 @@ int FrameInfo::count() {
 	return max_frame;
 }
 
-int FrameInfo::idx() {
-	return cur_frame;
-}
-
 AnimMode FrameInfo::mode() {
 	return info.mode;
 }
@@ -49,10 +45,6 @@ int FrameInfo::rate() {
 
 Size FrameInfo::size() {
 	return info.size;
-}
-
-void FrameInfo::reset () {
-	cur_frame = 0;
 }
 
 AnimMode FrameInfo::frame_mode (const string& value) const {
@@ -145,13 +137,13 @@ shared_ptr<FrameInfo> FrameInfo::create_from_type (const string& path, AnimResTy
 }
 
 // ------------------------------------------------
-shared_ptr<istream> ZipFrameInfo::next_frame () {
-	if (cur_frame >= max_frame)
-		FPLog.E()<<"next_frame ignore overflow frame index cur_frame="<<cur_frame<<" max_frame="<<max_frame<<endl;
-	else
-		cur_frame++;
+shared_ptr<istream> ZipFrameInfo::frame (int idx) {
+	if (idx >= max_frame) {
+		FPLog.E()<<"frame ignore overflow frame index cur_frame="<<idx<<" max_frame="<<max_frame<<endl;
+		idx = max_frame - 1;
+	}
 
-	string frame_name = info.frames[cur_frame];
+	string frame_name = info.frames[idx];
 	return shared_ptr<istream>(new istream(new ZipStreamBuf(zip_file, info.frame_path + "/" + frame_name)));
 }
 
@@ -174,14 +166,14 @@ const string ApkFrameInfo::APK_NAME      = "desc";
 const string ApkFrameInfo::APK_DESC_TYPE = "raw";
 const string ApkFrameInfo::APK_ANIM_TYPE = "drawable";
 
-shared_ptr<istream> ApkFrameInfo::next_frame () {
+shared_ptr<istream> ApkFrameInfo::frame (int idx) {
 	const ResTable& resTable = assetManager->getResources();
 
-	if (cur_frame >= max_frame)
-		FPLog.E()<<"next_frame ignore overflow frame index cur_frame="<<cur_frame<<" max_frame="<<max_frame<<endl;
-	else
-		cur_frame++;
-	string name = info.frames[cur_frame];
+	if (cur_frame >= max_frame) {
+		FPLog.E()<<"frame ignore overflow frame index cur_frame="<<cur_frame<<" max_frame="<<max_frame<<endl;
+		idx = max_frame -1;
+	}
+	string name = info.frames[idx];
 
 	String16 s16_name = String16(name.c_str(), name.length());
 	String16 s16_type = String16(APK_ANIM_TYPE.c_str());
@@ -235,18 +227,18 @@ string ApkFrameInfo::parse_anim_file () {
 }
 
 // ----------------------------------------------
-shared_ptr<istream> DIRFrameInfo::next_frame () {
-	if (cur_frame >= max_frame)
+shared_ptr<istream> DIRFrameInfo::frame (int idx) {
+	if (cur_frame >= max_frame) {
 		FPLog.E()<<"next_frame ignore overflow frame index cur_frame="<<cur_frame<<" max_frame="<<max_frame<<endl;
-	else
-		cur_frame++;
+		idx = max_frame -1;
+	}
 
-	string frame_name = info.frames[cur_frame];
+	string frame_name = info.frames[idx];
 	string path = parent_path + "/" + frame_name;
 
 	shared_ptr<istream> ifm(new ifstream(path));
 	if (!ifm->good()) {
-		FPLog.E()<<"next_frame open "<<path<<" failed"<<endl;
+		FPLog.E()<<"frame open "<<path<<" failed"<<endl;
 		return shared_ptr<istream>(nullptr);
 	}
 

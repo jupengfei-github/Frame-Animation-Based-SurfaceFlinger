@@ -26,16 +26,13 @@ class FramePlayer : public thread {
 	static void animation_thread (FramePlayer* const player);
 	bool init_display_surface();
 	void unint_display_surface();
-protected:
-	shared_ptr<FrameInfo> frame_info;
-	int surface_width, surface_height;
-	int xoff, yoff;
 public:
 	FramePlayer (shared_ptr<FrameInfo> info):thread(bind(animation_thread, this)) {
 		request_stop = false;
 		request_exit = false;
+
 		xoff = yoff = 0;
-		frame_info   = info;
+		this->info  = info;
 	}
 	virtual ~FramePlayer() {}
 
@@ -45,9 +42,12 @@ public:
 protected:
 	sp<Surface> surface;
 	sp<SurfaceControl> control;
+	shared_ptr<FrameInfo> info;
+	int width, height;
+	int xoff, yoff;
 
 	virtual bool init_frame() = 0;
-	virtual bool flush_frame(shared_ptr<istream>, int) const = 0;
+	virtual bool flush_frame(int) const = 0;
 	virtual void unint_frame() = 0;
 };
 
@@ -57,7 +57,7 @@ struct SkiaPlayer : public FramePlayer {
 	virtual ~SkiaPlayer() {}	
 protected:
 	virtual bool init_frame ();
-	virtual bool flush_frame(shared_ptr<istream>, int) const;
+	virtual bool flush_frame(int) const;
 	virtual void unint_frame ();
 private:
 	static inline SkColorType convertPixelFormat (PixelFormat format);
@@ -72,14 +72,14 @@ struct GLPlayer : public FramePlayer {
 	virtual ~GLPlayer() {}
 protected:
 	virtual bool init_frame ();
-	virtual bool flush_frame(shared_ptr<istream>, int) const;
+	virtual bool flush_frame(int) const;
 	virtual void unint_frame ();
 private:
-	vector<GLuint> frame_names;
-	EGLDisplay display;
-	EGLDisplay context;
+	vector<GLuint> frame_textures;
+	EGLDisplay egl_display;
+	EGLDisplay egl_context;
 	EGLDisplay egl_surface;
-	EGLConfig  config;
+	EGLConfig  egl_config;
 };
 
 }; //namespace frame_animation

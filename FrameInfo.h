@@ -74,14 +74,12 @@ public:
 	virtual ~FrameInfo () {}
 
 	int count();
-	int idx();
 	AnimMode mode();
 	int  rate();
-	void reset();
 	Size size();
 
 	void parse_anim_info ();
-	virtual shared_ptr<istream> next_frame() = 0;
+	virtual shared_ptr<istream> frame(int) = 0;
 
 	static shared_ptr<FrameInfo> create_from_type (const string&, AnimResType type);
 };
@@ -95,7 +93,7 @@ public:
 	}
 	virtual ~ZipFrameInfo () {}
 
-	virtual shared_ptr<istream> next_frame() override;
+	virtual shared_ptr<istream> frame(int) override;
 protected:
 	virtual string parse_anim_file () override;
 };
@@ -111,7 +109,7 @@ class ApkFrameInfo : public FrameInfo {
 public:
 	ApkFrameInfo (shared_ptr<AssetManager> assetManager):assetManager(assetManager) {}
 
-	virtual shared_ptr<istream> next_frame() override;
+	virtual shared_ptr<istream> frame(int) override;
 	virtual ~ApkFrameInfo() {}
 protected:
 	virtual string parse_anim_file () override;
@@ -121,7 +119,7 @@ class DIRFrameInfo : public FrameInfo {
 	string parent_path; /* Root Path */
 public:
 	DIRFrameInfo (const string& path):parent_path(path) {}
-	virtual shared_ptr<istream> next_frame() override;
+	virtual shared_ptr<istream> frame(int) override;
 	virtual ~DIRFrameInfo() {}
 protected:
 	virtual string parse_anim_file () override;
