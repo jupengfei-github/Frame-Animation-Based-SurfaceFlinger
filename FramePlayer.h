@@ -5,7 +5,7 @@
 #include <thread>
 #include <list>
 
-#include <GLES/gl.h>
+#include <GLES3/gl3.h>
 #include <EGL/egl.h>
 
 #include <SkCanvas.h>
@@ -68,18 +68,30 @@ private:
 
 // -----------------------------------
 struct GLPlayer : public FramePlayer {
-	GLPlayer(shared_ptr<FrameInfo> info);
+	GLPlayer(shared_ptr<FrameInfo> info):FramePlayer(info) {}
 	virtual ~GLPlayer() {}
 protected:
 	virtual bool init_frame ();
 	virtual bool flush_frame(int) const;
 	virtual void unint_frame ();
 private:
+	static const GLchar* VERTEX_STR;
+	static const GLchar* FRAGMENT_STR;
+
 	vector<GLuint> frame_textures;
 	EGLDisplay egl_display;
 	EGLDisplay egl_context;
 	EGLDisplay egl_surface;
 	EGLConfig  egl_config;
+
+	GLuint vShader;
+	GLuint fShader;
+	GLuint program;
+
+	static const GLfloat vertex_position[12];
+	static const GLfloat texture_position[8];
+
+	GLuint loadShader (GLenum type, const char* shader);
 };
 
 }; //namespace frame_animation

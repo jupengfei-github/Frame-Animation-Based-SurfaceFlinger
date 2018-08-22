@@ -65,7 +65,6 @@ protected:
 	/* Frame Info FileName */
 	static const string ENTRY_DESC;
 
-	int cur_frame; /* current frame */
 	int max_frame; /* max frames */
 	AnimInfo info;
  

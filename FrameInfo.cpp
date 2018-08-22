@@ -28,11 +28,16 @@ const string FrameInfo::DESC_KEY_RATE       = "rate";
 const string FrameInfo::DESC_KEY_FRAMES     = "frames";
 const string FrameInfo::DESC_KEY_FRAME_PATH = "frame_path";
 
+const string FrameInfo::FRAME_MODE_REVERSE_STR = "reverse";
+const string FrameInfo::FRAME_MODE_REPEATE_STR = "repeat";
+const string FrameInfo::FRAME_MODE_NORMAL_STR  = "normal";
+
+
 /* desc file name */
 const string FrameInfo::ENTRY_DESC = "desc.txt";
 
 int FrameInfo::count() {
-	return max_frame;
+	return info.frames.size();
 }
 
 AnimMode FrameInfo::mode() {
@@ -93,7 +98,7 @@ void FrameInfo::parse_desc_item(const string& key, const string& value) {
 	else if (key == DESC_KEY_MODE)
 		info.mode = frame_mode(value);
 	else 
-		FPLog.E()<<"illegal desc item "<<value<<endl;
+		FPLog.E()<<"illegal desc item : "<<value<<endl;
 }
 
 void FrameInfo::parse_anim_info () {
@@ -110,9 +115,14 @@ void FrameInfo::parse_anim_info () {
 
 		ite_str = item_match.suffix().str();
 	}
+
+	max_frame = info.frames.size();
+	dump();
 }
 
 shared_ptr<FrameInfo> FrameInfo::create_from_type (const string& path, AnimResType type) {
+	shared_ptr<FrameInfo> frame_info;
+
 	if (FRAME_RES_TYPE_APK == type) {
 		shared_ptr<AssetManager> assetManager(new AssetManager());
 		String8 s8_path(path.c_str(), path.length());
@@ -120,20 +130,23 @@ shared_ptr<FrameInfo> FrameInfo::create_from_type (const string& path, AnimResTy
 		if (!assetManager->addAssetPath(s8_path, nullptr))
 			throw new parse_exception("parse_apk_frame addAssetPath fail");
 
-		return shared_ptr<FrameInfo>(new ApkFrameInfo(assetManager));
+		frame_info = shared_ptr<FrameInfo>(new ApkFrameInfo(assetManager));
 	}
 	else if (FRAME_RES_TYPE_ZIP == type) {
 		shared_ptr<ZipFileRO> zip_file(ZipFileRO::open(path.c_str()));
 		if (!zip_file.get())
 			throw parse_exception("open " + path + " fail");
 
-		return shared_ptr<FrameInfo>(new ZipFrameInfo(zip_file));
+		frame_info =  shared_ptr<FrameInfo>(new ZipFrameInfo(zip_file));
 	}
 	else if (FRAME_RES_TYPE_DIR == type) {
-		return shared_ptr<FrameInfo>(new DIRFrameInfo(path));
+		frame_info =  shared_ptr<FrameInfo>(new DIRFrameInfo(path));
 	}
 	else
 		throw new parse_exception("unknown anim_res_type " + path);
+
+	frame_info->parse_anim_info();
+	return frame_info;
 }
 
 // ------------------------------------------------
@@ -169,8 +182,8 @@ const string ApkFrameInfo::APK_ANIM_TYPE = "drawable";
 shared_ptr<istream> ApkFrameInfo::frame (int idx) {
 	const ResTable& resTable = assetManager->getResources();
 
-	if (cur_frame >= max_frame) {
-		FPLog.E()<<"frame ignore overflow frame index cur_frame="<<cur_frame<<" max_frame="<<max_frame<<endl;
+	if (idx >= max_frame) {
+		FPLog.E()<<"frame ignore overflow frame index cur_frame="<<idx<<" max_frame="<<max_frame<<endl;
 		idx = max_frame -1;
 	}
 	string name = info.frames[idx];
@@ -228,13 +241,13 @@ string ApkFrameInfo::parse_anim_file () {
 
 // ----------------------------------------------
 shared_ptr<istream> DIRFrameInfo::frame (int idx) {
-	if (cur_frame >= max_frame) {
-		FPLog.E()<<"next_frame ignore overflow frame index cur_frame="<<cur_frame<<" max_frame="<<max_frame<<endl;
+	if (idx >= max_frame) {
+		FPLog.E()<<"next_frame ignore overflow frame index cur_frame="<<idx<<" max_frame="<<max_frame<<endl;
 		idx = max_frame -1;
 	}
 
 	string frame_name = info.frames[idx];
-	string path = parent_path + "/" + frame_name;
+	string path = parent_path + "/" + info.frame_path + "/" + frame_name;
 
 	shared_ptr<istream> ifm(new ifstream(path));
 	if (!ifm->good()) {
