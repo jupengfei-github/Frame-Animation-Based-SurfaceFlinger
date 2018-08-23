@@ -67,16 +67,18 @@ bool FramePlayer::init_display_surface () {
 		return false;
 	}
 
-	control = session->createSurface(String8("frameAnimation"), dinfo.w, dinfo.h, PIXEL_FORMAT_RGB_565);
+	control = session->createSurface(String8("frameAnimation"), dinfo.w, dinfo.h, PIXEL_FORMAT_RGBA_8888);
 	if (!control.get()) {
 		FPLog.E()<<"createSurface fail"<<endl;
 		return false;
 	}
 
 	surface = control->getSurface();
-	width  = dinfo.w;
-	height = dinfo.h;
 	FPLog.E()<<"create Surface width : "<<dinfo.w<<" height : "<<dinfo.h<<endl;
+
+	Size s = info->size();
+	xoff = max(0, static_cast<int>(dinfo.w  - s.width)) / 2;
+	yoff = max(0, static_cast<int>(dinfo.h - s.height)) / 2;
 
 	SurfaceComposerClient::openGlobalTransaction(); 
 	control->setLayer(0x40000000);
@@ -148,10 +150,6 @@ bool SkiaPlayer::init_frame () {
 		return false;
 	}
 
-	Size s = info->size();
-	xoff = max(0, (width  - s.width)) / 2;
-	yoff = max(0, (height - s.height)) / 2;
-
 	SkImageInfo image_info = SkImageInfo::Make(buffer.width, buffer.height,
 		convertPixelFormat(buffer.format),
 		buffer.format == PIXEL_FORMAT_RGBX_8888? kOpaque_SkAlphaType : kPremul_SkAlphaType,
@@ -201,7 +199,6 @@ bool SkiaPlayer::flush_frame(int idx) const {
 	int x = xoff + max(0, (s.width - bitmap.width())) / 2;
 	int y = yoff + max(0, (s.height - bitmap.height())) / 2;
 
-	canvas->clear(SK_ColorBLACK);
 	canvas->drawBitmap(bitmap, x, y, &paint);
 	surface->unlockAndPost();
 	return true;
@@ -214,8 +211,7 @@ void SkiaPlayer::unint_frame () {
 
 inline SkColorType SkiaPlayer::convertPixelFormat (PixelFormat format) {
 	switch (format) {
-		case PIXEL_FORMAT_RGBX_8888: return kN32_SkColorType;
-		case PIXEL_FORMAT_RGBA_8888: return kN32_SkColorType;
+		case PIXEL_FORMAT_RGBX_8888: case PIXEL_FORMAT_RGBA_8888: return kN32_SkColorType;
 		case PIXEL_FORMAT_RGBA_FP16: return kRGBA_F16_SkColorType;
 		case PIXEL_FORMAT_RGB_565:   return kRGB_565_SkColorType;
 		default:                     return kUnknown_SkColorType;
@@ -229,12 +225,12 @@ const GLchar* GLPlayer::VERTEX_STR =
 	"uniform mat4 vMatrix; \n"
     "varying vec2 aCoordinate; \n"
 	" void main () { \n"
-	" 	gl_Position = vMatrix*vPosition; \n"
+	" 	gl_Position = vPosition; \n"
 	"	aCoordinate = vCooridnate; \n"
 	" } \n";
 
 const GLchar* GLPlayer::FRAGMENT_STR =
-	"precision medium float; \n"
+	"precision mediump float; \n"
     "                        \n"
 	" uniform sampler2D vTexture; \n"
 	" varying vec2 aCoordinate;   \n"
@@ -253,16 +249,15 @@ const GLfloat GLPlayer::vertex_position[] = {
 const GLfloat GLPlayer::texture_position[] = {
 	0,  0,
 	0,  1.0f,
-	1.0f, 0,
 	1.0f, 1.0f,
+	1.0f, 0,
 };
 
 GLuint GLPlayer::loadShader (GLenum type, const GLchar* shader_str) {
 	GLuint shader;
 
-	shader = glCreateShader(type);
-	if (glGetError() != GL_NO_ERROR) {
-		FPLog.E()<<"loadShader Type="<<type<<" Error="<<glGetError()<<endl;
+	if (!(shader = glCreateShader(type))) {
+		FPLog.E()<<"glCreateShader Type="<<type<<" Fail"<<endl;
 		return 0;
 	}
 
@@ -272,16 +267,16 @@ GLuint GLPlayer::loadShader (GLenum type, const GLchar* shader_str) {
 	GLint status;
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
 	if (!status) {
-		FPLog.E()<<"compile shader "<<shader<<":"<<type<<" fail"<<endl;
+		FPLog.E()<<"glCompileShader "<<shader<<":"<<type<<" fail"<<endl;
 
 		GLint length;
 		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
 		if (length > 0) {
 			char * buf = static_cast<char*>(malloc(length));
-			if (buf) {
+			if (buf != nullptr) {
 				memset(buf, 0, length);
 				glGetShaderInfoLog(shader, length, NULL, buf);	
-				FPLog.E()<<"compile shader Error : "<<buf<<endl;
+				FPLog.E()<<"glCompileShader Error="<<buf<<endl;
 				free(buf);
 			}
 		}
@@ -296,10 +291,11 @@ GLuint GLPlayer::loadShader (GLenum type, const GLchar* shader_str) {
 bool GLPlayer::init_frame () {
 	int max_frames = info->count();
 	const EGLint display_attrs[] = {
-		EGL_RED_SIZE,   5,
-		EGL_GREEN_SIZE, 6,
-		EGL_BLUE_SIZE,  5,
-		EGL_DEPTH_SIZE, 0,
+		EGL_RED_SIZE,   8,
+		EGL_GREEN_SIZE, 8,
+		EGL_BLUE_SIZE,  8,
+		EGL_DEPTH_SIZE, 16,
+		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
 		EGL_NONE,
 	};
 
@@ -309,7 +305,12 @@ bool GLPlayer::init_frame () {
 	EGLint num_config;
 	eglChooseConfig(egl_display, display_attrs, &egl_config, 1, &num_config);
 	egl_surface = eglCreateWindowSurface(egl_display, egl_config, surface.get(), nullptr);
-	egl_context = eglCreateContext(egl_display, egl_config, nullptr, nullptr);
+
+	EGLint context_attrs[] = {
+		EGL_CONTEXT_CLIENT_VERSION, 2,
+		EGL_NONE,
+	};
+	egl_context = eglCreateContext(egl_display, egl_config, EGL_NO_CONTEXT, context_attrs);
 	if (eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context) == EGL_FALSE) {
 		FPLog.E()<<"eglMakeCurrent fail : "<<eglGetError()<<endl;
 		return false;
@@ -328,9 +329,10 @@ bool GLPlayer::init_frame () {
 		return false;
 	}
 
-	program = glCreateProgram();
-	if (glGetError() != GL_NO_ERROR) {
-		FPLog.E()<<"glCreateProgram Error="<<glGetError()<<endl;
+	if (!(program = glCreateProgram())) {
+		FPLog.E()<<"glCreateProgram Fail="<<endl;
+		glDeleteShader(vShader);
+		glDeleteShader(fShader);
 		return false;
 	}
 
@@ -341,7 +343,7 @@ bool GLPlayer::init_frame () {
 	GLint status;
 	glGetProgramiv(program, GL_LINK_STATUS, &status);
 	if (!status) {
-		FPLog.E()<<"glLinkProgram "<<program<<" fail"<<endl;
+		FPLog.E()<<"glLinkProgram "<<program<<" Fail"<<endl;
 
 		GLint length;
 		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &length);
@@ -350,7 +352,7 @@ bool GLPlayer::init_frame () {
 			if (buf != nullptr) {
 				memset(buf, 0, length);
 				glGetProgramInfoLog(program, length, nullptr, buf);
-				FPLog.E()<<"glLink Error : "<<buf<<endl;
+				FPLog.E()<<"glLinkProgram Error="<<buf<<endl;
 				free(buf);
 			}
 		}
@@ -362,10 +364,10 @@ bool GLPlayer::init_frame () {
 	}
 
 	GLfloat maxtrix[] = {
-		1, 1, 1, 1,
-		1, 1, 1, 1,
-		1, 1, 1, 1,
-		1, 1, 1, 1,
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1,
 	};
 	GLint uMaxtrix = glGetUniformLocation(program, "vMatrix");
 	glUniformMatrix4fv(uMaxtrix, sizeof(maxtrix), false, maxtrix);
@@ -375,7 +377,7 @@ bool GLPlayer::init_frame () {
 		if (!is.get() || !is->good())
 			continue;
 
-		is->seekg(0, ios_base::end);	
+		is->seekg(0, ios_base::end);
 		size_t size = is->tellg();
 		is->seekg(0, ios_base::beg);
 
@@ -400,48 +402,55 @@ bool GLPlayer::init_frame () {
 		GLuint texture_id;
 		glGenTextures(1, &texture_id);
 		glBindTexture(GL_TEXTURE_2D, texture_id);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
 		switch (bitmap.colorType()) {
 			case kAlpha_8_SkColorType:
 				glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, w, h, 0, GL_ALPHA, GL_UNSIGNED_BYTE, p);
 				break;
 			case kARGB_4444_SkColorType:
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_SHORT_4_4_4_4, p);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_SHORT_4_4_4_4, p);
 				break;
 			case kN32_SkColorType:
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE ,p);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE ,p);
 				break;
 			case kRGB_565_SkColorType:
 				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, p);
 				break;
 			default:
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, p);
 				break;
 		}
 
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
 		glBindTexture(GL_TEXTURE_2D, 0);
 		frame_textures.push_back(texture_id);
+		frame_size.push_back(pair<int, int>(w, h));
 	}
 
 	return true;
 }
 
-bool GLPlayer::flush_frame(int idx) const {
-	Size s = info->size();
-	glViewport(xoff, yoff, s.width, s.height);
-
+bool GLPlayer::flush_frame(int idx __unused) const {
 	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT);
 	glUseProgram(program);
 
-	glBindTexture(GL_TEXTURE_2D, frame_textures[idx]);
+	Size s = info->size();
+	pair<int, int> size = frame_size[idx];
+	int x = xoff + max((s.width - size.first), 0)/2;
+	int y = yoff + max((s.height - size.second), 0)/2;
+	glViewport(x, y, size.first, size.second);
 
 	GLint vertex_attr_pos = glGetAttribLocation(program, "vPosition");
 	glEnableVertexAttribArray(vertex_attr_pos);
 	glVertexAttribPointer(vertex_attr_pos, 3, GL_FLOAT, GL_FALSE, 0, vertex_position);
+
+	GLint uTexture = glGetUniformLocation(program, "vTexture");
+	glUniform1i(uTexture, GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, frame_textures[idx]);
 
 	GLint frag_attr_pos = glGetAttribLocation(program, "vCooridnate");
 	glEnableVertexAttribArray(frag_attr_pos);

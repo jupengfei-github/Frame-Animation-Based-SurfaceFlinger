@@ -79,6 +79,7 @@ private:
 	static const GLchar* FRAGMENT_STR;
 
 	vector<GLuint> frame_textures;
+	vector<pair<int, int>> frame_size;
 	EGLDisplay egl_display;
 	EGLDisplay egl_context;
 	EGLDisplay egl_surface;
