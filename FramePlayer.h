@@ -63,7 +63,6 @@ private:
 	static inline SkColorType convertPixelFormat (PixelFormat format);
 
 	vector<SkBitmap> frames;
-	auto_ptr<SkCanvas> canvas;
 };
 
 // -----------------------------------

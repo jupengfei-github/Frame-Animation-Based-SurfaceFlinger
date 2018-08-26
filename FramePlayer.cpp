@@ -142,28 +142,6 @@ void FramePlayer::animation_thread (FramePlayer* const player) {
 
 // -----------------------------------------------------------------------
 bool SkiaPlayer::init_frame () {
-	ANativeWindow_Buffer buffer;
-
-	status_t err = surface->lock(&buffer, nullptr);
-	if (err < 0) {
-		FPLog.E()<<"Surface lock buffer fail"<<endl;
-		return false;
-	}
-
-	SkImageInfo image_info = SkImageInfo::Make(buffer.width, buffer.height,
-		convertPixelFormat(buffer.format),
-		buffer.format == PIXEL_FORMAT_RGBX_8888? kOpaque_SkAlphaType : kPremul_SkAlphaType,
-		GraphicsJNI::defaultColorSpace());
-
-	SkBitmap bitmap;
-	ssize_t bpr = buffer.stride * bytesPerPixel(buffer.format);
-	bitmap.setInfo(image_info, bpr);
-	if (buffer.width > 0 && buffer.height > 0)
-		bitmap.setPixels(buffer.bits);
-	else
-		bitmap.setPixels(nullptr);
-	canvas = auto_ptr<SkCanvas>(new SkCanvas(bitmap));
-
 	int max_frames = info->count();
 	for (int i = 0; i < max_frames; i++) {
 		shared_ptr<istream> is = info->frame(i);
@@ -192,14 +170,36 @@ bool SkiaPlayer::flush_frame(int idx) const {
 	if (idx >= max_frames)
 		return false;
 
+	ANativeWindow_Buffer buffer;
+	status_t err = surface->lock(&buffer, nullptr);
+	if (err < 0) {
+		FPLog.E()<<"flush_frame Surface lockBuffer fail"<<endl;
+		return false;
+	}
+
+	SkImageInfo image_info = SkImageInfo::Make(buffer.width, buffer.height,
+		convertPixelFormat(buffer.format),
+		buffer.format == PIXEL_FORMAT_RGBX_8888? kOpaque_SkAlphaType : kPremul_SkAlphaType,
+		GraphicsJNI::defaultColorSpace());
+
+	SkBitmap bitmap;
+	ssize_t bpr = buffer.stride * bytesPerPixel(buffer.format);
+	bitmap.setInfo(image_info, bpr);
+	if (buffer.width > 0 && buffer.height > 0)
+		bitmap.setPixels(buffer.bits);
+	else
+		bitmap.setPixels(nullptr);
+	auto_ptr<SkCanvas> canvas = auto_ptr<SkCanvas>(new SkCanvas(bitmap));
+
 	SkPaint paint;
-	const SkBitmap bitmap = frames[idx];
+	const SkBitmap map = frames[idx];
 
 	Size s = info->size();
-	int x = xoff + max(0, (s.width - bitmap.width())) / 2;
-	int y = yoff + max(0, (s.height - bitmap.height())) / 2;
+	int x = xoff + max(0, (s.width - map.width())) / 2;
+	int y = yoff + max(0, (s.height - map.height())) / 2;
 
-	canvas->drawBitmap(bitmap, x, y, &paint);
+	canvas->drawColor(SK_ColorBLACK);
+	canvas->drawBitmap(map, x, y, &paint);
 	surface->unlockAndPost();
 	return true;
 }
