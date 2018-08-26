@@ -30,11 +30,13 @@ extern fpstream FPLog;
 class ResStreamBuf : public streambuf {
 	shared_ptr<Asset> asset;
 	char *buf;
+	int length;
 public:
 	ResStreamBuf (shared_ptr<Asset> asset);
-
 	virtual int underflow();
-	virtual int uflow();
+protected:
+	virtual pos_type seekoff(off_type off, ios_base::seekdir way, ios_base::openmode which) override;
+	virtual pos_type seekpos(pos_type pos, ios_base::openmode mode = ios_base::in | ios_base::out) override;
 };
 
 class ZipStreamBuf : public streambuf {
@@ -44,10 +46,10 @@ class ZipStreamBuf : public streambuf {
 	int length;
 public:
 	ZipStreamBuf (shared_ptr<ZipFileRO>, string);
-
 	virtual int underflow() override;
 protected:
 	virtual pos_type seekoff(off_type off, ios_base::seekdir way, ios_base::openmode which) override;
+	virtual pos_type seekpos(pos_type pos, ios_base::openmode mode = ios_base::in | ios_base::out) override;
 };
 
 }; //namespace frame_animation

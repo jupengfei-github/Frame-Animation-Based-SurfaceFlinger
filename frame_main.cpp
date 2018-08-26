@@ -13,7 +13,7 @@
 #define ANIM_PATH_DIR  "/sdcard/animation"
 #define ANIM_PATH_RES  "/sdcard/animation.apk"
 
-#define ANIM_PATH      ANIM_PATH_DIR
+#define ANIM_PATH      ANIM_PATH_RES
 
 using namespace std;
 using namespace frame_animation;

@@ -83,15 +83,43 @@ fpstream& fpstream::log_priority (android_LogPriority pri) {
 ResStreamBuf::ResStreamBuf (shared_ptr<Asset> asset) {
 	this->asset = asset;
 	buf = const_cast<char*>(static_cast<const char*>(asset->getBuffer(true)));
+	length = asset->getLength();
+
 	setg(buf, buf, buf + asset->getLength());
 }
 
-int ResStreamBuf::underflow () {
-	return EOF;
+streambuf::int_type ResStreamBuf::underflow () {
+	if (gptr() < egptr())
+		return traits_type::to_int_type(*gptr());
+	else
+		return EOF;
 }
 
-int ResStreamBuf::uflow () {
-	return EOF;
+streambuf::pos_type ResStreamBuf::seekoff(off_type off, ios_base::seekdir way, ios_base::openmode which) {
+	if (which == ios_base::out)
+		return 0;
+
+	if (way == ios_base::beg)
+		return seekpos(off, ios_base::in);
+	else if (way == ios_base::cur)
+		return seekpos(gptr() - eback() + off, ios_base::in);
+	else
+		return seekpos(off + length, ios_base::in);
+}
+
+streambuf::pos_type ResStreamBuf::seekpos(pos_type pos, ios_base::openmode mode) {
+	if (mode == ios_base::out)
+		return streambuf::seekpos(pos, mode);
+
+	if (pos <0)
+		pos = 0;
+
+	if (pos > length)
+		pos = length;
+
+	setg(eback(), eback() + pos, egptr());
+
+	return pos;
 }
 
 // --------------------------------------------------------
@@ -109,11 +137,10 @@ ZipStreamBuf::ZipStreamBuf (shared_ptr<ZipFileRO> zip, string name) {
 	char *ptr = static_cast<char*>(file_map->getDataPtr());
 	length =  file_map->getDataLength();
 
-	FPLog.I()<<"ZipStreamBuf dataLength : "<<length<<endl;
-	setg(ptr, ptr, ptr + file_map->getDataLength());
+	setg(ptr, ptr, ptr + length);
 }
 
-int ZipStreamBuf::underflow () {
+streambuf::int_type ZipStreamBuf::underflow () {
 	if (gptr() < egptr())
 		return traits_type::to_int_type(*gptr());
 	else
@@ -121,12 +148,31 @@ int ZipStreamBuf::underflow () {
 }
 
 streambuf::pos_type ZipStreamBuf::seekoff(off_type off, ios_base::seekdir way, ios_base::openmode which) {
+	if (which == ios_base::out)
+		return 0;
+
 	if (way == ios_base::beg)
-		return seekpos(off, which);
+		return seekpos(off, ios_base::in);
 	else if (way == ios_base::cur)
-		return seekpos(gptr() - eback() + off, which);
+		return seekpos(gptr() - eback() + off, ios_base::in);
 	else
-		return seekpos(off + length, which);
+		return seekpos(off + length, ios_base::in);
+}
+
+
+streambuf::pos_type ZipStreamBuf::seekpos(pos_type pos, ios_base::openmode mode) {
+	if (mode == ios_base::out)
+		return streambuf::seekpos(pos, mode);
+
+	if (pos <0)
+		pos = 0;
+
+	if (pos > length)
+		pos = length;
+
+	setg(eback(), eback() + pos, egptr());
+
+	return pos;
 }
 
 }; //namespace frame_animation
