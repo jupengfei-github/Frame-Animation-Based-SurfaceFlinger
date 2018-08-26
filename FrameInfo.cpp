@@ -198,23 +198,19 @@ shared_ptr<istream> ApkFrameInfo::frame (int idx) {
 		throw io_exception("Can't find Resource Entry " + name);
 	}
 
-	FPLog.I()<<"resource Id="<<id<<endl;
 	Res_value value;
 	ssize_t index = resTable.getResource(id, &value);
 
-	FPLog.I()<<"id="<<id<<" index="<<index<<endl;
 	auto_ptr<const ResStringPool> strPool(resTable.getTableStringBlock(index));
 	if (!strPool.get()) {
 		FPLog.E()<<"obtain ResStringPool fail"<<endl;
 		throw io_exception("Can't find StringPool " + name);
 	}
 
-	FPLog.I()<<"string8At "<<value.data<<endl;
 	size_t len;
 	const char* str = strPool->string8At(value.data, &len);
 
 	string real_path(str, len);
-	FPLog.I()<<"find real_path="<<real_path<<endl;
 	shared_ptr<Asset> asset(assetManager->openNonAsset(real_path.c_str(), Asset::ACCESS_STREAMING));
 
 	return shared_ptr<istream>(new istream(new ResStreamBuf(asset)));
@@ -235,8 +231,6 @@ string ApkFrameInfo::parse_anim_file () {
 
 	Res_value value;
 	ssize_t index = resTable.getResource(id, &value);
-
-	FPLog.I()<<"string index="<<index<<endl;
 	const ResStringPool *stringPool = resTable.getTableStringBlock(index);
 
 	size_t len;

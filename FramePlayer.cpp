@@ -142,23 +142,13 @@ void FramePlayer::animation_thread (FramePlayer* const player) {
 
 // -----------------------------------------------------------------------
 bool SkiaPlayer::init_frame () {
-	FPLog.E()<<"Skia init_frame"<<endl;
-
 	int max_frames = info->count();
-	FPLog.E()<<"Skia init_frame 5"<<endl;
 
 	for (int i = 0; i < max_frames; i++) {
-	FPLog.E()<<"Skia init_frame 8"<<endl;
-
 		shared_ptr<istream> is = info->frame(i);
-		FPLog.E()<<"Skia init_frame 1"<<endl;
-
 		if (!is.get() || !is->good())
 			continue;
 
-		FPLog.E()<<"Skia init_frame 2"<<endl;
-
-		FPLog.E()<<"Skia initFrame before"<<endl;
 		is->seekg(0, ios_base::end);
 		size_t len = is->tellg();
 		is->seekg(0, ios_base::beg);
