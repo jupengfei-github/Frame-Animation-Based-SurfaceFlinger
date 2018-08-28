@@ -83,9 +83,9 @@ fpstream& fpstream::log_priority (android_LogPriority pri) {
 ResStreamBuf::ResStreamBuf (shared_ptr<Asset> asset) {
 	this->asset = asset;
 	buf = const_cast<char*>(static_cast<const char*>(asset->getBuffer(true)));
-	length = asset->getLength();
 
-	setg(buf, buf, buf + asset->getLength());
+	length = asset->getLength();
+	setg(buf, buf, buf + length);
 }
 
 streambuf::int_type ResStreamBuf::underflow () {

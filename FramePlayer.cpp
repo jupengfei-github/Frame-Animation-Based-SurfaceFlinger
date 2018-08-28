@@ -146,6 +146,7 @@ bool SkiaPlayer::init_frame () {
 
 	for (int i = 0; i < max_frames; i++) {
 		shared_ptr<istream> is = info->frame(i);
+
 		if (!is.get() || !is->good())
 			continue;
 
@@ -153,7 +154,6 @@ bool SkiaPlayer::init_frame () {
 		size_t len = is->tellg();
 		is->seekg(0, ios_base::beg);
 
-		FPLog.E()<<"Skia initFrame size="<<len<<endl;
 		SkBitmap bitmap;
 		SkStreamAdapter adapter(is);
 		sk_sp<SkData> data = SkData::MakeFromStream(&adapter, len);

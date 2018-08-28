@@ -5,6 +5,7 @@ LOCAL_SRC_FILES := frame_main.cpp FrameParser.cpp \
 		FrameStream.cpp FrameInfo.cpp \
 		FramePlayer.cpp
 
+LOCAL_STRIP_MODULE := false
 LOCAL_CPPFLAGS += -fexceptions -frtti
 LOCAL_CFLAGS += -DGL_GLEXT_PROTOTYPES -DEGL_EGLEXT_PROTOTYPES
 LOCAL_SHARED_LIBRARIES := liblog libcutils libutils libandroidfw \

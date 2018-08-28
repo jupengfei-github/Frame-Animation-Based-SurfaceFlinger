@@ -191,21 +191,11 @@ shared_ptr<istream> ApkFrameInfo::frame (int idx) {
 	String16 s16_name = String16(name.c_str(), name.length());
 	String16 s16_type = String16(APK_ANIM_TYPE.c_str());
 	String16 s16_pkg  = String16(APK_PACKAGE.c_str());
-	uint32_t id = resTable.identifierForName(s16_name, s16_name.size(),
-		s16_type, s16_type.size(), s16_pkg, s16_pkg.size());
-	if (id == 0) {
-		FPLog.E()<<"identifierForName "<<name<<" fail";
-		throw io_exception("Can't find Resource Entry " + name);
-	}
+	uint32_t id = resTable.identifierForName(s16_name, s16_name.size(), s16_type, s16_type.size(), s16_pkg, s16_pkg.size());
 
 	Res_value value;
 	ssize_t index = resTable.getResource(id, &value);
-
-	auto_ptr<const ResStringPool> strPool(resTable.getTableStringBlock(index));
-	if (!strPool.get()) {
-		FPLog.E()<<"obtain ResStringPool fail"<<endl;
-		throw io_exception("Can't find StringPool " + name);
-	}
+	const ResStringPool *strPool = resTable.getTableStringBlock(index);
 
 	size_t len;
 	const char* str = strPool->string8At(value.data, &len);
