@@ -58,6 +58,9 @@ class FrameInfo {
 	static const string FRAME_MODE_REPEATE_STR;
 	static const string FRAME_MODE_NORMAL_STR;
 
+	static const string PROP_SDK_VERSION;
+
+    static ResTable_config default_resource_config();
 	void parse_desc_item(const string&, const string&);
 	AnimMode frame_mode (const string&) const;
 	void dump () const;

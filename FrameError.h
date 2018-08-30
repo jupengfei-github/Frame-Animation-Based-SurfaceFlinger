@@ -19,4 +19,8 @@ struct io_exception : public base_exception {
 	io_exception (const string exp):base_exception(exp) {}
 };
 
+struct structor_exception : public base_exception {
+	structor_exception (const string exp):base_exception(exp) {}
+};
+
 #endif

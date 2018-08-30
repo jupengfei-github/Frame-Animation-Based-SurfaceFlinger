@@ -3,7 +3,8 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := frame_main.cpp FrameParser.cpp \
 		FrameStream.cpp FrameInfo.cpp \
-		FramePlayer.cpp
+		FramePlayer.cpp \
+		FrameDisplay.cpp
 
 LOCAL_STRIP_MODULE := false
 LOCAL_CPPFLAGS += -fexceptions -frtti

@@ -1,8 +1,4 @@
-#include <iostream>
-
 #include "FrameParser.h"
-#include "FrameStream.h"
-#include "FrameError.h"
 
 namespace frame_animation {
 

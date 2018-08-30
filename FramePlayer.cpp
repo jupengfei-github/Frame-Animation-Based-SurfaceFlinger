@@ -15,6 +15,7 @@
 
 #include "FramePlayer.h"
 #include "FrameError.h"
+#include "FrameDisplay.h"
 
 namespace frame_animation {
 
@@ -52,14 +53,7 @@ void FramePlayer::stop () {
 
 /* apply Surface from SurfaceFlinger */
 bool FramePlayer::init_display_surface () {
-	DisplayInfo dinfo;
-
-	sp<IBinder> dtoken(SurfaceComposerClient::getBuiltInDisplay(ISurfaceComposer::eDisplayIdMain));
-	status_t status = SurfaceComposerClient::getDisplayInfo(dtoken, &dinfo);
-	if (status) {
-		FPLog.E()<<"getDisplayInfo fail"<<endl;
-		return false;
-	}
+	DisplayMetrics dm;
 
 	sp<SurfaceComposerClient> session = new SurfaceComposerClient();
 	if (!session.get()) {
@@ -67,18 +61,18 @@ bool FramePlayer::init_display_surface () {
 		return false;
 	}
 
-	control = session->createSurface(String8("frameAnimation"), dinfo.w, dinfo.h, PIXEL_FORMAT_RGBA_8888);
+	control = session->createSurface(String8("frameAnimation"), dm.width(), dm.height(), PIXEL_FORMAT_RGBA_8888);
 	if (!control.get()) {
 		FPLog.E()<<"createSurface fail"<<endl;
 		return false;
 	}
 
 	surface = control->getSurface();
-	FPLog.E()<<"create Surface width : "<<dinfo.w<<" height : "<<dinfo.h<<endl;
+	FPLog.E()<<"create Surface width : "<<dm.width()<<" height : "<<dm.height()<<endl;
 
 	Size s = info->size();
-	xoff = max(0, static_cast<int>(dinfo.w  - s.width)) / 2;
-	yoff = max(0, static_cast<int>(dinfo.h - s.height)) / 2;
+	xoff = max(0, static_cast<int>(dm.width()  - s.width)) / 2;
+	yoff = max(0, static_cast<int>(dm.height() - s.height)) / 2;
 
 	SurfaceComposerClient::openGlobalTransaction(); 
 	control->setLayer(0x40000000);

@@ -5,8 +5,10 @@
 #include <androidfw/Asset.h>
 #include <androidfw/AssetManager.h>
 #include <androidfw/ResourceTypes.h>
+#include <cutils/properties.h>
 
 #include "FrameInfo.h"
+#include "FrameDisplay.h"
 
 using namespace std;
 using namespace android;
@@ -32,6 +34,8 @@ const string FrameInfo::FRAME_MODE_REVERSE_STR = "reverse";
 const string FrameInfo::FRAME_MODE_REPEATE_STR = "repeat";
 const string FrameInfo::FRAME_MODE_NORMAL_STR  = "normal";
 
+/* PROP */
+const string FrameInfo::PROP_SDK_VERSION = "ro.build.version.sdk";
 
 /* desc file name */
 const string FrameInfo::ENTRY_DESC = "desc.txt";
@@ -130,6 +134,9 @@ shared_ptr<FrameInfo> FrameInfo::create_from_type (const string& path, AnimResTy
 		if (!assetManager->addAssetPath(s8_path, nullptr))
 			throw new parse_exception("parse_apk_frame addAssetPath fail");
 
+		const ResTable_config config = default_resource_config();
+		assetManager->setConfiguration(config);
+
 		frame_info = shared_ptr<FrameInfo>(new ApkFrameInfo(assetManager));
 	}
 	else if (FRAME_RES_TYPE_ZIP == type) {
@@ -147,6 +154,46 @@ shared_ptr<FrameInfo> FrameInfo::create_from_type (const string& path, AnimResTy
 
 	frame_info->parse_anim_info();
 	return frame_info;
+}
+
+ResTable_config FrameInfo::default_resource_config () {
+	char prop_value[PROPERTY_VALUE_MAX];
+	ResTable_config config;
+	DisplayMetrics dm;
+
+	/* any */
+	config.mnc = 0;
+	config.mcc = 0;
+
+	strncpy(config.language, "en", 2);
+	strncpy(config.country, "US", 2);
+
+	config.density = dm.density();
+	config.orientation = ResTable_config::ORIENTATION_PORT;
+	config.touchscreen = ResTable_config::TOUCHSCREEN_FINGER;
+
+	config.keyboard = ResTable_config::KEYBOARD_NOKEYS;
+	config.navigation = ResTable_config::NAVIGATION_NONAV;
+	config.inputFlags = ResTable_config::KEYSHIDDEN_YES;
+
+	config.screenWidth  = dm.width();
+	config.screenHeight = dm.height();
+
+	property_get(PROP_SDK_VERSION.c_str(), prop_value, "4");
+	config.sdkVersion = atoi(prop_value);
+	config.minorVersion = 0;
+
+	config.screenLayout = ResTable_config::LAYOUTDIR_LTR;
+	config.uiMode = ResTable_config::UI_MODE_TYPE_NORMAL;
+	config.smallestScreenWidthDp = ResTable_config::SCREENSIZE_NORMAL;
+
+	config.screenWidthDp  = 0;
+	config.screenHeightDp = 0;
+
+	config.screenLayout2 = ResTable_config::SCREENROUND_NO;
+	config.colorMode = ResTable_config::HDR_NO;
+
+	return config;
 }
 
 // ------------------------------------------------
