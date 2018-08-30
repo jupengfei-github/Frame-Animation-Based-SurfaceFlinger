@@ -9,18 +9,18 @@ using namespace android;
 namespace frame_animation {
 
 class DisplayMetrics {
-	DisplayInfo dInfo;
+    DisplayInfo dInfo;
 public:
-	DisplayMetrics ();
+    DisplayMetrics ();
 
-	int density () const;
-	int width () const {
-		return dInfo.w;
-	}
+    int density () const;
+    int width () const {
+        return dInfo.w;
+    }
 
-	int height () const {
-		return dInfo.h;
-	}
+    int height () const {
+        return dInfo.h;
+    }
 };
 
 }; //namespace android

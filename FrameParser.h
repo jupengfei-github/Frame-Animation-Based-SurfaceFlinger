@@ -10,13 +10,13 @@ using namespace android;
 namespace frame_animation {
 
 class FrameParser {
-	static const string FRAME_TYPE_ZIP_STR;
-	static const string FRAME_TYPE_APK_STR;
-	static const string FRAME_TYPE_DIR_STR;
+    static const string FRAME_TYPE_ZIP_STR;
+    static const string FRAME_TYPE_APK_STR;
+    static const string FRAME_TYPE_DIR_STR;
 
-	AnimResType frame_type (const string&);
+    AnimResType frame_type (const string&);
 public:
-	shared_ptr<FrameInfo> parse (const string&);
+    shared_ptr<FrameInfo> parse (const string&);
 };
 
 }; //namespace frame_animation

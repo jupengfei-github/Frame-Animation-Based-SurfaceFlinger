@@ -19,14 +19,14 @@ using namespace std;
 using namespace frame_animation;
 
 int main(void) {
-	sp<ProcessState> proc(ProcessState::self());
-	proc->startThreadPool();
+    sp<ProcessState> proc(ProcessState::self());
+    proc->startThreadPool();
 
-	FrameParser frame_parser;
-	shared_ptr<FrameInfo> frame_info = frame_parser.parse(string(ANIM_PATH));
-	auto_ptr<FramePlayer> frame_player = auto_ptr<FramePlayer>(new GLPlayer(frame_info));
-	frame_player->start();
+    FrameParser frame_parser;
+    shared_ptr<FrameInfo> frame_info = frame_parser.parse(string(ANIM_PATH));
+    auto_ptr<FramePlayer> frame_player = auto_ptr<FramePlayer>(new GLPlayer(frame_info));
+    frame_player->start();
 
-	IPCThreadState::self()->joinThreadPool();
-	return 0;
+    IPCThreadState::self()->joinThreadPool();
+    return 0;
 }
