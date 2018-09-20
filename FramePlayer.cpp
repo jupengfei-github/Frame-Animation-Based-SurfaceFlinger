@@ -74,9 +74,8 @@ bool FramePlayer::init_display_surface () {
     xoff = max(0, static_cast<int>(dm.width()  - s.width)) / 2;
     yoff = max(0, static_cast<int>(dm.height() - s.height)) / 2;
 
-    SurfaceComposerClient::openGlobalTransaction(); 
-    control->setLayer(0x40000000);
-    SurfaceComposerClient::closeGlobalTransaction();
+    SurfaceComposerClient::Transaction t;
+    t.setLayer(control, 0x40000000).apply();
 
     return true;
 }
@@ -124,7 +123,7 @@ void FramePlayer::animation_thread (FramePlayer* const player) {
         if (!exit)
             break;
 
-        const long sleepTime = ns2ms(systemTime()) - now;
+        const long sleepTime = frame_time - (ns2ms(systemTime()) - now);
         if (sleepTime > 0)
             usleep(sleepTime);
     }
@@ -429,7 +428,7 @@ bool GLPlayer::init_frame () {
     return true;
 }
 
-bool GLPlayer::flush_frame(int idx __unused) const {
+bool GLPlayer::flush_frame(int idx) const {
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(program);

@@ -75,7 +75,7 @@ public:
 fpstream::fpstream ():ostream(new fpsbuffer(LOG_TAG)) {}
 
 fpstream& fpstream::log_priority (android_LogPriority pri) {
-    dynamic_cast<fpsbuffer*>(rdbuf())->set_priority(pri);
+    static_cast<fpsbuffer*>(rdbuf())->set_priority(pri);
     return *this;
 }
 

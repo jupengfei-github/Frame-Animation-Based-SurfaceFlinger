@@ -9,9 +9,9 @@
 #include "FramePlayer.h"
 #include "FrameInfo.h"
 
-#define ANIM_PATH_ZIP  "/sdcard/animation.zip"
-#define ANIM_PATH_DIR  "/sdcard/animation"
-#define ANIM_PATH_RES  "/sdcard/animation.apk"
+#define ANIM_PATH_ZIP  "/data/frameAnimation/animation.zip"
+#define ANIM_PATH_DIR  "/data/frameAnimation/animation"
+#define ANIM_PATH_RES  "/data/frameAnimation/animation.apk"
 
 #define ANIM_PATH      ANIM_PATH_RES
 

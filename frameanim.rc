@@ -1,0 +1,12 @@
+service frameanim /system/bin/frameanimation
+    class core, animation
+    user graphics
+    groups graphics
+    disabled
+    oneshot
+
+on property:frame_animation.exit=0
+    start frameanim
+
+on property:frame_animation.exit=1
+    stop frameanim
