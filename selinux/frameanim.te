@@ -1,0 +1,64 @@
+type frameanim, domain, mlstrustedsubject;
+type frameanim_exec, file_type, exec_type;
+
+hal_client_domain(frameanim, hal_configstore)
+hal_client_domain(frameanim, hal_graphics_allocator)
+hal_client_domain(frameanim, hal_graphics_composer)
+
+# frameanim resource type
+type frameanim_data_file, file_type, data_file_type;
+
+# frameanim process domain
+typeattribute frameanim coredomain;
+init_daemon_domain(frameanim)
+
+# /data/frameAnimation access
+allow frameanim frameanim_data_file:dir  search;
+allow frameanim frameanim_data_file:file r_file_perms;
+
+# /oem acess
+allow frameanim oemfs:dir search;
+allow frameanim oemfs:file r_file_perms;
+
+# /system/lib/egl access
+allow frameanim system_file:dir  { search read open };
+allow frameanim system_file:file r_file_perms;
+
+# binder
+binder_use(frameanim)
+hwbinder_use(frameanim)
+hwbinder_use(frameanim)
+
+binder_call(frameanim, surfaceflinger)
+binder_call(surfaceflinger, frameanim)
+
+# surfaceflinger
+allow frameanim surfaceflinger_service:service_manager find;
+
+# access ion/gpu
+allow frameanim gpu_device:dir search;
+allow frameanim gpu_device:chr_file rw_file_perms;
+allow frameanim ion_device:chr_file r_file_perms;
+
+# access apk
+allow frameanim resourcecache_data_file:dir  search;
+allow frameanim resourcecache_data_file:file r_file_perms;
+
+# access proc
+allow frameanim proc:file r_file_perms;
+
+# access debugfs
+allow frameanim debugfs_ion:dir  search;
+allow frameanim debugfs_ion:file read;
+
+# access proc_ged
+allow frameanim proc_ged:file { read open ioctl };
+
+# access hwservicemanager_prop
+get_prop(frameanim, hwservicemanager_prop)
+
+allow frameanim proc_perfmgr:dir  search;
+allow frameanim proc_perfmgr:file { read open ioctl };
+
+allow surfaceflinger frameanim:dir  search;
+allow surfaceflinger frameanim:file { read open ioctl };

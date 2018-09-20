@@ -1,0 +1,2 @@
+/data/frameAnimation(/.*)?    u:object_r:frameanim_data_file:s0
+/system/bin/frameanimation    u:object_r:frameanim_exec:s0
