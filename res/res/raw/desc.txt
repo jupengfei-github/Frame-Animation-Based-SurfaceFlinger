@@ -43,5 +43,4 @@ frames: [
 	vigour_progress_anim_light_39,
 ]
 frame_path: [image]
-frame_type: [dir]
 mode: [repeat]

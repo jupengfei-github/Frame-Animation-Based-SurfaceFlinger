@@ -1,0 +1,6 @@
+service frameanim /system/bin/frameanimation
+    class core, animation
+    user graphics
+    groups graphics
+    disabled
+    oneshot

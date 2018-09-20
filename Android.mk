@@ -1,7 +1,7 @@
 LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
-LOCAL_SRC_FILES := frame_main.cpp FrameParser.cpp \
+LOCAL_SRC_FILES := framemain.cpp FrameParser.cpp \
         FrameStream.cpp FrameInfo.cpp \
         FramePlayer.cpp \
         FrameDisplay.cpp
@@ -13,8 +13,10 @@ LOCAL_SHARED_LIBRARIES := liblog libcutils libutils libandroidfw \
         libskia libEGL libGLESv3 libOpenSLES \
         libui libgui \
         libandroid_runtime \
-        libbinder \
+        libbinder
 
-LOCAL_MODULE  := frame_animation
+LOCAL_MODULE  := frameanimation
+LOCAL_INIT_RC := frameanim.rc
+
 include $(BUILD_EXECUTABLE)
 include $(call all-makefiles-under,$(LOCAL_PATH))

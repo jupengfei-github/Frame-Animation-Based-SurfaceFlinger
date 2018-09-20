@@ -124,7 +124,7 @@ void FramePlayer::animation_thread (FramePlayer* const player) {
         if (!exit)
             break;
 
-        const long sleepTime = ns2ms(systemTime()) - now;
+        const long sleepTime = frame_time - (ns2ms(systemTime()) - now);
         if (sleepTime > 0)
             usleep(sleepTime);
     }
